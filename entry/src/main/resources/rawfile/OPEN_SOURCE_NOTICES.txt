@@ -9,6 +9,9 @@ it under that license.
 GeoNest is provided WITHOUT ANY WARRANTY, including without the implied
 warranties of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 
+Project source: https://github.com/haohaoai0/GeoNest
+Release source archives: https://github.com/haohaoai0/GeoNest/releases
+
 The complete release build replaces this notice payload with the full
 contents of LICENSE, COPYING, THIRD_PARTY_NOTICES.md, and
 SOURCE_OFFER.txt. The same release directory contains matching source

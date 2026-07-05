@@ -1402,7 +1402,7 @@
     },
     {
       "name": "gn_open_source_source_entry",
-      "value": "对应源码与 APP/HAP 在同一发布目录：GeoNest、修改后的 QGIS、修改后的 Qt、原生依赖源码包及 SOURCE-MANIFEST.txt。"
+      "value": "源码：https://github.com/haohaoai0/GeoNest；每个 APP/HAP 的修改版 QGIS、Qt 和原生依赖源码包位于同版本 Releases。"
     },
     {
       "name": "gn_open_source_show_licenses",

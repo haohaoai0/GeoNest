@@ -10,9 +10,17 @@ They contain the exact GeoNest, modified QGIS, modified Qt, and native
 dependency sources plus the interface definitions and scripts used to
 control compilation and installation.
 
-The source archives are available from the same download location and
-at no higher charge than the binary. Verify them with
-SOURCE-SHA256SUMS.txt.
+The project source repository is:
+
+https://github.com/haohaoai0/GeoNest
+
+Matching QGIS, Qt, and native dependency source archives are published
+with each binary release at:
+
+https://github.com/haohaoai0/GeoNest/releases
+
+The source archives are available at no higher charge than the binary.
+Verify them with SOURCE-SHA256SUMS.txt.
 
 If a distributor separates a binary from these source archives, that
 distributor must provide an independently valid GPL source offer and
