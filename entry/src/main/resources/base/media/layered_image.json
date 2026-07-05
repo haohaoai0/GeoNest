@@ -1,0 +1,7 @@
+{
+  "layered-image":
+  {
+    "background" : "$media:geonest_icon_background",
+    "foreground" : "$media:geonest_icon_foreground"
+  }
+}

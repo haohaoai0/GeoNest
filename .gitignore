@@ -1,0 +1,35 @@
+/node_modules
+/oh_modules
+/local.properties
+/build-profile.json5
+/.agents
+/.arts
+/.codeartsdoer
+/.playwright-cli
+/.merkle-snapshot.json
+**/.idea
+**/build
+/output
+geonest_*.jpeg
+geonest_*_hilog.txt
+/entry/src/main/resources/rawfile/HarmonyOS_Sans_SC_Regular.ttf
+/.hvigor
+.cxx
+/.clangd
+/.clang-format
+/.clang-tidy
+
+# Large local dependency worktrees and build products are not stored in the
+# application Git history. They are packaged as exact source archives beside
+# every APP/HAP by scripts/package_corresponding_source.ps1. Porting patches
+# and compliance metadata remain tracked here.
+/native/third_party/qgis/*
+!/native/third_party/qgis/patches/
+!/native/third_party/qgis/patches/**
+/native/third_party/qt6/src
+/native/third_party/qt6/reference_qt5_ohos
+/native/third_party/qt6/build-ohos
+/native/third_party/qt6/stage
+/native/third_party/qt6/build-geonest-qt6-probe
+**/.test
+/.appanalyzer

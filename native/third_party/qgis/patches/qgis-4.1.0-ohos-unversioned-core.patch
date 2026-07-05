@@ -1,0 +1,17 @@
+diff --git a/src/core/CMakeLists.txt b/src/core/CMakeLists.txt
+--- a/src/core/CMakeLists.txt
++++ b/src/core/CMakeLists.txt
+@@ -2819,8 +2819,11 @@ set_target_properties(qgis_core PROPERTIES
+   CLEAN_DIRECT_OUTPUT 1
+ )
+ 
+-#generate unversioned libs for android
+-if (NOT ANDROID)
++# GeoNest change, 2026-06-22: treat HarmonyOS like Android so mobile
++# packaging receives an unversioned libqgis_core.so. Modification notice
++# added 2026-07-05 for GPL section 2(a) compliance.
++# Generate unversioned libraries for mobile packaging targets.
++if (NOT ANDROID AND NOT CMAKE_SYSTEM_NAME STREQUAL "OHOS")
+   set_target_properties(qgis_core PROPERTIES
+     VERSION ${COMPLETE_VERSION}
+     SOVERSION ${COMPLETE_VERSION}

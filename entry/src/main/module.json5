@@ -1,0 +1,128 @@
+{
+  "module": {
+    "name": "entry",
+    "type": "entry",
+    "description": "$string:module_desc",
+    "mainElement": "EntryAbility",
+    "deviceTypes": [
+      "phone",
+      "2in1"
+    ],
+    "deliveryWithInstall": true,
+    "metadata": [
+      {
+        "name": "client_id",
+        "value": "6917609111357438298"
+      }
+    ],
+    "requestPermissions": [
+      {
+        "name": "ohos.permission.INTERNET",
+        "reason": "$string:gn_internet_permission_reason",
+        "usedScene": {
+          "abilities": [
+            "EntryAbility"
+          ],
+          "when": "inuse"
+        }
+      },
+      {
+        "name": "ohos.permission.GET_NETWORK_INFO",
+        "reason": "$string:gn_network_permission_reason",
+        "usedScene": {
+          "abilities": [
+            "EntryAbility"
+          ],
+          "when": "inuse"
+        }
+      },
+      { "name": "ohos.permission.PRINT" }
+    ],
+    "installationFree": false,
+    "pages": "$profile:main_pages",
+    "abilities": [
+      {
+        "name": "EntryAbility",
+        "srcEntry": "./ets/entryability/EntryAbility.ets",
+        "description": "$string:EntryAbility_desc",
+        "icon": "$media:layered_image",
+        "label": "$string:EntryAbility_label",
+        "startWindowIcon": "$media:transparent_start_icon",
+        "startWindowBackground": "$color:start_window_background",
+        "orientation": "auto_rotation_landscape",
+        "exported": true,
+        "skills": [
+          {
+            "entities": [
+              "entity.system.home"
+            ],
+            "actions": [
+              "ohos.want.action.home"
+            ]
+          },
+          {
+            "actions": [
+              "ohos.want.action.viewData"
+            ],
+            "uris": [
+              {
+                "scheme": "file",
+                "type": "general.plain-text",
+                "linkFeature": "FileOpen"
+              },
+              {
+                "scheme": "file",
+                "type": "application/json",
+                "linkFeature": "FileOpen"
+              },
+              {
+                "scheme": "file",
+                "type": "application/geo+json",
+                "linkFeature": "FileOpen"
+              },
+              {
+                "scheme": "file",
+                "type": "application/geopackage+sqlite3",
+                "linkFeature": "FileOpen"
+              },
+              {
+                "scheme": "file",
+                "type": "application/octet-stream",
+                "linkFeature": "FileOpen"
+              },
+              {
+                "scheme": "file",
+                "type": "image/tiff",
+                "linkFeature": "FileOpen"
+              },
+              {
+                "scheme": "file",
+                "type": "text/csv",
+                "linkFeature": "FileOpen"
+              },
+              {
+                "scheme": "file",
+                "type": "application/vnd.google-earth.kml+xml",
+                "linkFeature": "FileOpen"
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "extensionAbilities": [
+      {
+        "name": "EntryBackupAbility",
+        "srcEntry": "./ets/entrybackupability/EntryBackupAbility.ets",
+        "type": "backup",
+        "exported": false,
+        "metadata": [
+          {
+            "name": "ohos.extension.backup",
+            "resource": "$profile:backup_config"
+          }
+        ],
+      }
+    ]
+  }
+}

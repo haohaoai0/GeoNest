@@ -1,0 +1,13 @@
+diff --git a/qtbase/src/corelib/io/qprocess_unix.cpp b/qtbase/src/corelib/io/qprocess_unix.cpp
+index 0000000000..0000000000 100644
+--- a/qtbase/src/corelib/io/qprocess_unix.cpp
++++ b/qtbase/src/corelib/io/qprocess_unix.cpp
+@@ -113,7 +113,7 @@ namespace QtVforkSafe {
+ //
+ // All other functions called in the child side are vfork-safe, provided that
+ // PThread cancellation is disabled and Unix signals are blocked.
+-#if defined(__MUSL__)
++#if defined(__MUSL__) && !defined(OPENHARMONY) && !defined(__OHOS__)
+ #  define LIBC_PREFIX   __libc_
+ #elif defined(Q_OS_FREEBSD)
+ // will cause QtCore to link to ELF version "FBSDprivate_1.0"

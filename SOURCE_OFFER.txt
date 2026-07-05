@@ -1,0 +1,26 @@
+GeoNest Corresponding Source
+============================
+
+GeoNest is distributed under GNU GPL version 2 or (at your option) any
+later version.
+
+Every GeoNest APP or HAP must be distributed from a directory that also
+provides the matching source archives listed in SOURCE-MANIFEST.txt.
+They contain the exact GeoNest, modified QGIS, modified Qt, and native
+dependency sources plus the interface definitions and scripts used to
+control compilation and installation.
+
+The source archives are available from the same download location and
+at no higher charge than the binary. Verify them with
+SOURCE-SHA256SUMS.txt.
+
+If a distributor separates a binary from these source archives, that
+distributor must provide an independently valid GPL source offer and
+must remain able to supply the complete corresponding source for at
+least three years. A link to an unpinned upstream QGIS or Qt branch is
+not a substitute for the matching modified source.
+
+This file intentionally contains no private signing key, signing
+password, certificate private material, store credential, or generated
+build cache. Those items are not part of the preferred form for
+modifying GeoNest.

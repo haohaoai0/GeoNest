@@ -1,0 +1,2066 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>GeoNest Pro GIS Workbench</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='10' fill='%23235aa6'/%3E%3Cpath d='M13 18h38v28H13z' fill='%23fff' opacity='.18'/%3E%3Cpath d='M17 40l10-13 8 8 12-17' fill='none' stroke='white' stroke-width='5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+  <style>
+    :root {
+      --blue-900: #173d73;
+      --blue-800: #1d4f91;
+      --blue-700: #235aa6;
+      --blue-100: #eaf1fb;
+      --green-700: #1f7a55;
+      --orange-700: #bd6b16;
+      --red-700: #bd3d35;
+      --purple-700: #6f59b5;
+      --bg: #dfe5e3;
+      --pane: #f7f9f8;
+      --pane-2: #eef3f1;
+      --paper: #ffffff;
+      --text: #17201d;
+      --muted: #66736d;
+      --line: rgba(28, 40, 36, 0.16);
+      --line-strong: rgba(28, 40, 36, 0.25);
+      --shadow: 0 14px 36px rgba(23, 32, 29, 0.14);
+      --radius: 6px;
+      font-family: "HarmonyOS Sans", "Segoe UI", "Microsoft YaHei UI", sans-serif;
+      color: var(--text);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      overflow: hidden;
+      background: var(--bg);
+    }
+
+    button,
+    input,
+    select {
+      font: inherit;
+    }
+
+    button {
+      border: 0;
+      color: inherit;
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .app {
+      display: grid;
+      grid-template-rows: 34px 132px minmax(0, 1fr);
+      width: 100%;
+      height: 100%;
+      min-width: 360px;
+      background: var(--bg);
+    }
+
+    .quickbar {
+      display: grid;
+      grid-template-columns: auto minmax(0, 1fr) auto;
+      align-items: center;
+      gap: 12px;
+      height: 34px;
+      padding: 0 10px;
+      background: var(--blue-900);
+      color: white;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-width: 0;
+      font-size: 13px;
+      font-weight: 800;
+    }
+
+    .brand-mark {
+      display: grid;
+      place-items: center;
+      width: 24px;
+      height: 24px;
+      border-radius: 5px;
+      background: rgba(255, 255, 255, 0.18);
+      font-size: 11px;
+      letter-spacing: 0;
+    }
+
+    .project-title {
+      min-width: 0;
+      overflow: hidden;
+      color: rgba(255, 255, 255, 0.92);
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      font-size: 12px;
+      text-align: center;
+    }
+
+    .quick-actions {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+
+    .quick-button {
+      display: grid;
+      place-items: center;
+      width: 26px;
+      height: 26px;
+      border-radius: 4px;
+      background: transparent;
+      color: rgba(255, 255, 255, 0.86);
+    }
+
+    .quick-button:hover {
+      background: rgba(255, 255, 255, 0.15);
+      color: white;
+    }
+
+    .ribbon {
+      display: grid;
+      grid-template-rows: 34px minmax(0, 1fr);
+      border-bottom: 1px solid var(--line-strong);
+      background: var(--pane);
+      box-shadow: 0 2px 10px rgba(18, 31, 28, 0.08);
+      z-index: 5;
+    }
+
+    .ribbon-tabs {
+      display: flex;
+      align-items: end;
+      gap: 2px;
+      padding: 0 8px;
+      background: #f4f7f6;
+      border-bottom: 1px solid var(--line);
+      overflow-x: auto;
+    }
+
+    .tab {
+      height: 31px;
+      min-width: 62px;
+      padding: 0 12px;
+      border-radius: 5px 5px 0 0;
+      background: transparent;
+      color: #2e3a36;
+      font-size: 13px;
+      font-weight: 750;
+      white-space: nowrap;
+    }
+
+    .tab.active {
+      background: var(--paper);
+      color: var(--blue-800);
+      border: 1px solid var(--line);
+      border-bottom-color: var(--paper);
+    }
+
+    .ribbon-body {
+      display: flex;
+      min-width: 0;
+      gap: 0;
+      overflow-x: auto;
+      background: var(--paper);
+    }
+
+    .ribbon-group {
+      display: grid;
+      grid-template-rows: minmax(0, 1fr) 18px;
+      min-width: max-content;
+      padding: 7px 10px 3px;
+      border-right: 1px solid var(--line);
+    }
+
+    .command-row {
+      display: flex;
+      align-items: start;
+      gap: 6px;
+    }
+
+    .command {
+      display: grid;
+      grid-template-rows: 34px auto;
+      place-items: center;
+      min-width: 58px;
+      max-width: 78px;
+      min-height: 62px;
+      padding: 3px 5px;
+      border-radius: var(--radius);
+      background: transparent;
+      color: var(--text);
+      font-size: 11px;
+      line-height: 1.15;
+      text-align: center;
+    }
+
+    .command:hover,
+    .command.active {
+      background: var(--blue-100);
+      color: var(--blue-800);
+    }
+
+    .command.compact {
+      grid-template-rows: 24px auto;
+      min-width: 50px;
+      min-height: 54px;
+    }
+
+    .group-title {
+      align-self: end;
+      color: var(--muted);
+      font-size: 11px;
+      text-align: center;
+      white-space: nowrap;
+    }
+
+    .glyph {
+      position: relative;
+      display: block;
+      width: 22px;
+      height: 22px;
+      color: currentColor;
+    }
+
+    .glyph-save::before {
+      position: absolute;
+      inset: 3px;
+      border: 2px solid currentColor;
+      border-radius: 3px;
+      content: "";
+    }
+
+    .glyph-save::after {
+      position: absolute;
+      left: 7px;
+      right: 7px;
+      bottom: 5px;
+      height: 6px;
+      border: 2px solid currentColor;
+      content: "";
+    }
+
+    .glyph-undo::before,
+    .glyph-redo::before {
+      position: absolute;
+      left: 5px;
+      top: 6px;
+      width: 13px;
+      height: 10px;
+      border-top: 2px solid currentColor;
+      border-left: 2px solid currentColor;
+      border-radius: 10px 0 0 0;
+      content: "";
+    }
+
+    .glyph-undo::after,
+    .glyph-redo::after {
+      position: absolute;
+      left: 3px;
+      top: 4px;
+      width: 8px;
+      height: 8px;
+      border-left: 2px solid currentColor;
+      border-bottom: 2px solid currentColor;
+      transform: rotate(45deg);
+      content: "";
+    }
+
+    .glyph-redo {
+      transform: scaleX(-1);
+    }
+
+    .glyph-map {
+      border: 2px solid currentColor;
+      border-radius: 4px;
+      transform: skewY(-8deg);
+    }
+
+    .glyph-map::before,
+    .glyph-map::after {
+      position: absolute;
+      top: -2px;
+      bottom: -2px;
+      width: 2px;
+      background: currentColor;
+      content: "";
+    }
+
+    .glyph-map::before {
+      left: 6px;
+    }
+
+    .glyph-map::after {
+      right: 6px;
+    }
+
+    .glyph-data::before {
+      position: absolute;
+      left: 3px;
+      top: 3px;
+      width: 16px;
+      height: 6px;
+      border: 2px solid currentColor;
+      border-radius: 50%;
+      content: "";
+    }
+
+    .glyph-data::after {
+      position: absolute;
+      left: 3px;
+      top: 7px;
+      width: 16px;
+      height: 12px;
+      border: 2px solid currentColor;
+      border-top: 0;
+      border-radius: 0 0 50% 50%;
+      content: "";
+    }
+
+    .glyph-basemap::before {
+      position: absolute;
+      inset: 2px;
+      border: 2px solid currentColor;
+      border-radius: 4px;
+      content: "";
+    }
+
+    .glyph-basemap::after {
+      position: absolute;
+      left: 5px;
+      top: 11px;
+      width: 12px;
+      height: 2px;
+      background: currentColor;
+      transform: rotate(-25deg);
+      box-shadow: 0 -5px 0 currentColor, 0 5px 0 currentColor;
+      content: "";
+    }
+
+    .glyph-select::before {
+      position: absolute;
+      left: 5px;
+      top: 2px;
+      width: 0;
+      height: 0;
+      border-top: 17px solid currentColor;
+      border-right: 9px solid transparent;
+      content: "";
+    }
+
+    .glyph-table {
+      border: 2px solid currentColor;
+      border-radius: 4px;
+    }
+
+    .glyph-table::before,
+    .glyph-table::after {
+      position: absolute;
+      background: currentColor;
+      content: "";
+    }
+
+    .glyph-table::before {
+      top: 7px;
+      left: 0;
+      right: 0;
+      height: 2px;
+    }
+
+    .glyph-table::after {
+      top: 0;
+      bottom: 0;
+      left: 8px;
+      width: 2px;
+    }
+
+    .glyph-edit::before {
+      position: absolute;
+      left: 10px;
+      top: 1px;
+      width: 5px;
+      height: 20px;
+      border-radius: 3px;
+      background: currentColor;
+      transform: rotate(42deg);
+      content: "";
+    }
+
+    .glyph-edit::after {
+      position: absolute;
+      left: 3px;
+      bottom: 2px;
+      width: 11px;
+      height: 2px;
+      background: currentColor;
+      content: "";
+    }
+
+    .glyph-clip::before {
+      position: absolute;
+      left: 2px;
+      top: 3px;
+      width: 14px;
+      height: 14px;
+      border: 2px solid currentColor;
+      border-radius: 4px;
+      content: "";
+    }
+
+    .glyph-clip::after {
+      position: absolute;
+      right: 2px;
+      bottom: 3px;
+      width: 14px;
+      height: 14px;
+      border: 2px solid currentColor;
+      border-radius: 50%;
+      opacity: 0.75;
+      content: "";
+    }
+
+    .glyph-buffer::before {
+      position: absolute;
+      inset: 3px;
+      border: 2px solid currentColor;
+      border-radius: 50%;
+      content: "";
+    }
+
+    .glyph-buffer::after {
+      position: absolute;
+      inset: 7px;
+      border: 2px solid currentColor;
+      border-radius: 50%;
+      content: "";
+    }
+
+    .glyph-topology::before {
+      position: absolute;
+      left: 3px;
+      top: 3px;
+      width: 5px;
+      height: 5px;
+      border-radius: 50%;
+      background: currentColor;
+      box-shadow: 11px 0 0 currentColor, 5px 12px 0 currentColor;
+      content: "";
+    }
+
+    .glyph-topology::after {
+      position: absolute;
+      left: 6px;
+      top: 6px;
+      width: 12px;
+      height: 11px;
+      border-left: 2px solid currentColor;
+      border-bottom: 2px solid currentColor;
+      transform: rotate(-18deg);
+      content: "";
+    }
+
+    .glyph-label::before {
+      position: absolute;
+      left: 2px;
+      top: 3px;
+      width: 18px;
+      height: 14px;
+      border: 2px solid currentColor;
+      border-radius: 4px;
+      content: "";
+    }
+
+    .glyph-label::after {
+      position: absolute;
+      left: 6px;
+      top: 7px;
+      width: 10px;
+      height: 2px;
+      background: currentColor;
+      box-shadow: 0 4px 0 currentColor;
+      content: "";
+    }
+
+    .glyph-layout::before {
+      position: absolute;
+      inset: 2px;
+      border: 2px solid currentColor;
+      border-radius: 3px;
+      content: "";
+    }
+
+    .glyph-layout::after {
+      position: absolute;
+      left: 6px;
+      right: 6px;
+      top: 6px;
+      height: 7px;
+      border: 2px solid currentColor;
+      content: "";
+    }
+
+    .glyph-export::before {
+      position: absolute;
+      left: 4px;
+      bottom: 2px;
+      width: 14px;
+      height: 12px;
+      border: 2px solid currentColor;
+      border-top: 0;
+      border-radius: 0 0 4px 4px;
+      content: "";
+    }
+
+    .glyph-export::after {
+      position: absolute;
+      left: 10px;
+      top: 1px;
+      width: 2px;
+      height: 14px;
+      background: currentColor;
+      box-shadow: -4px 5px 0 -1px currentColor, 4px 5px 0 -1px currentColor;
+      content: "";
+    }
+
+    .glyph-search::before {
+      position: absolute;
+      left: 2px;
+      top: 2px;
+      width: 12px;
+      height: 12px;
+      border: 2px solid currentColor;
+      border-radius: 50%;
+      content: "";
+    }
+
+    .glyph-search::after {
+      position: absolute;
+      right: 2px;
+      bottom: 3px;
+      width: 8px;
+      height: 2px;
+      background: currentColor;
+      transform: rotate(45deg);
+      content: "";
+    }
+
+    .glyph-plus::before,
+    .glyph-plus::after,
+    .glyph-minus::before {
+      position: absolute;
+      background: currentColor;
+      content: "";
+    }
+
+    .glyph-plus::before,
+    .glyph-minus::before {
+      left: 4px;
+      top: 10px;
+      width: 14px;
+      height: 2px;
+    }
+
+    .glyph-plus::after {
+      left: 10px;
+      top: 4px;
+      width: 2px;
+      height: 14px;
+    }
+
+    .workspace {
+      display: grid;
+      grid-template-columns: 288px minmax(420px, 1fr) 324px;
+      min-width: 0;
+      min-height: 0;
+    }
+
+    .pane {
+      min-width: 0;
+      min-height: 0;
+      background: var(--pane);
+      border-right: 1px solid var(--line);
+      overflow: hidden;
+    }
+
+    .right-pane {
+      border-right: 0;
+      border-left: 1px solid var(--line);
+    }
+
+    .pane-header {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      align-items: center;
+      gap: 8px;
+      height: 38px;
+      padding: 0 10px;
+      border-bottom: 1px solid var(--line);
+      background: var(--paper);
+    }
+
+    .pane-title {
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      font-size: 14px;
+      font-weight: 850;
+    }
+
+    .pane-tool {
+      display: grid;
+      place-items: center;
+      width: 26px;
+      height: 26px;
+      border-radius: 4px;
+      background: transparent;
+      color: var(--muted);
+      font-weight: 850;
+    }
+
+    .pane-tool:hover {
+      background: var(--blue-100);
+      color: var(--blue-800);
+    }
+
+    .search-line {
+      display: grid;
+      grid-template-columns: 24px minmax(0, 1fr);
+      align-items: center;
+      height: 34px;
+      margin: 10px;
+      padding: 0 8px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--paper);
+      color: var(--muted);
+    }
+
+    .search-line input {
+      min-width: 0;
+      border: 0;
+      outline: 0;
+      background: transparent;
+      color: var(--text);
+      font-size: 12px;
+    }
+
+    .pane-scroll {
+      height: calc(100% - 92px);
+      overflow: auto;
+      padding: 0 10px 12px;
+    }
+
+    .section-title {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin: 12px 0 6px;
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 850;
+      text-transform: uppercase;
+    }
+
+    .layer-row {
+      display: grid;
+      grid-template-columns: 18px 22px minmax(0, 1fr) auto;
+      align-items: center;
+      gap: 8px;
+      min-height: 36px;
+      padding: 5px 7px;
+      border-radius: var(--radius);
+      font-size: 12px;
+    }
+
+    .layer-row:hover,
+    .layer-row.active {
+      background: var(--blue-100);
+    }
+
+    .layer-row input {
+      width: 16px;
+      height: 16px;
+      accent-color: var(--green-700);
+    }
+
+    .layer-name {
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      font-weight: 800;
+    }
+
+    .layer-meta {
+      color: var(--muted);
+      font-size: 11px;
+      white-space: nowrap;
+    }
+
+    .symbol {
+      display: block;
+      width: 18px;
+      height: 18px;
+    }
+
+    .symbol.poly {
+      border: 2px solid var(--green-700);
+      background: rgba(31, 122, 85, 0.18);
+      border-radius: 4px;
+    }
+
+    .symbol.line {
+      position: relative;
+    }
+
+    .symbol.line::before {
+      position: absolute;
+      left: 0;
+      right: 0;
+      top: 8px;
+      height: 3px;
+      border-radius: 3px;
+      background: var(--blue-700);
+      transform: rotate(-18deg);
+      content: "";
+    }
+
+    .symbol.zone {
+      border: 2px dashed var(--purple-700);
+      background: rgba(111, 89, 181, 0.10);
+      border-radius: 4px;
+    }
+
+    .symbol.point {
+      width: 13px;
+      height: 13px;
+      margin-left: 2px;
+      border-radius: 50%;
+      background: var(--orange-700);
+      box-shadow: 0 0 0 3px rgba(189, 107, 22, 0.16);
+    }
+
+    .catalog-item {
+      display: grid;
+      grid-template-columns: 30px minmax(0, 1fr);
+      gap: 8px;
+      align-items: center;
+      padding: 8px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--paper);
+      margin-bottom: 7px;
+      font-size: 12px;
+    }
+
+    .catalog-icon {
+      display: grid;
+      place-items: center;
+      width: 30px;
+      height: 30px;
+      border-radius: 5px;
+      background: var(--blue-700);
+      color: white;
+      font-size: 10px;
+      font-weight: 900;
+    }
+
+    .catalog-icon.green {
+      background: var(--green-700);
+    }
+
+    .catalog-icon.purple {
+      background: var(--purple-700);
+    }
+
+    .catalog-item strong {
+      display: block;
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .catalog-item span {
+      display: block;
+      margin-top: 2px;
+      color: var(--muted);
+      font-size: 11px;
+    }
+
+    .map-area {
+      display: grid;
+      grid-template-rows: 34px minmax(0, 1fr) 226px 28px;
+      min-width: 0;
+      min-height: 0;
+      background: #dbe7e2;
+    }
+
+    .document-tabs {
+      display: flex;
+      align-items: end;
+      gap: 2px;
+      padding: 4px 6px 0;
+      border-bottom: 1px solid var(--line);
+      background: #edf2f0;
+      overflow-x: auto;
+    }
+
+    .doc-tab {
+      height: 29px;
+      padding: 0 12px;
+      border: 1px solid transparent;
+      border-radius: 5px 5px 0 0;
+      background: transparent;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 800;
+      white-space: nowrap;
+    }
+
+    .doc-tab.active {
+      background: var(--paper);
+      color: var(--blue-800);
+      border-color: var(--line);
+      border-bottom-color: var(--paper);
+    }
+
+    .map-frame {
+      position: relative;
+      min-width: 0;
+      min-height: 0;
+      overflow: hidden;
+      background: #dbe7e2;
+    }
+
+    #mapCanvas {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      background: #dbe7e2;
+      touch-action: none;
+    }
+
+    .floating-tools {
+      position: absolute;
+      left: 12px;
+      top: 12px;
+      z-index: 3;
+      display: flex;
+      gap: 4px;
+      padding: 4px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: rgba(255, 255, 255, 0.88);
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(16px);
+    }
+
+    .float-button {
+      display: grid;
+      place-items: center;
+      width: 32px;
+      height: 32px;
+      border-radius: 4px;
+      background: transparent;
+      color: var(--muted);
+    }
+
+    .float-button:hover,
+    .float-button.active {
+      background: var(--blue-100);
+      color: var(--blue-800);
+    }
+
+    .map-callout {
+      position: absolute;
+      right: 14px;
+      top: 14px;
+      z-index: 3;
+      width: 230px;
+      padding: 10px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: rgba(255, 255, 255, 0.9);
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(16px);
+      font-size: 12px;
+    }
+
+    .map-callout b {
+      display: block;
+      font-size: 13px;
+      margin-bottom: 4px;
+    }
+
+    .map-callout span {
+      display: block;
+      color: var(--muted);
+      line-height: 1.35;
+    }
+
+    .scale {
+      position: absolute;
+      left: 14px;
+      bottom: 14px;
+      z-index: 3;
+      width: 118px;
+      height: 32px;
+      padding: 6px 9px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: rgba(255, 255, 255, 0.88);
+      box-shadow: var(--shadow);
+      font-size: 11px;
+      font-weight: 800;
+    }
+
+    .scale::after {
+      position: absolute;
+      left: 9px;
+      right: 9px;
+      bottom: 7px;
+      height: 4px;
+      border-left: 2px solid currentColor;
+      border-right: 2px solid currentColor;
+      border-bottom: 2px solid currentColor;
+      content: "";
+    }
+
+    .attribute-panel {
+      min-width: 0;
+      min-height: 0;
+      border-top: 1px solid var(--line-strong);
+      background: var(--paper);
+      overflow: hidden;
+    }
+
+    .attribute-head {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      align-items: center;
+      height: 36px;
+      padding: 0 8px 0 10px;
+      border-bottom: 1px solid var(--line);
+      background: #f7f9f8;
+    }
+
+    .attribute-head h2 {
+      min-width: 0;
+      margin: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      font-size: 13px;
+    }
+
+    .table-actions {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .small-button {
+      height: 26px;
+      padding: 0 8px;
+      border: 1px solid var(--line);
+      border-radius: 4px;
+      background: var(--paper);
+      font-size: 11px;
+      font-weight: 800;
+      white-space: nowrap;
+    }
+
+    .small-button.primary {
+      background: var(--green-700);
+      color: white;
+      border-color: transparent;
+    }
+
+    .table-wrap {
+      height: calc(100% - 36px);
+      overflow: auto;
+    }
+
+    table {
+      width: 100%;
+      min-width: 900px;
+      border-collapse: collapse;
+      font-size: 12px;
+    }
+
+    th,
+    td {
+      height: 32px;
+      padding: 0 10px;
+      border-right: 1px solid var(--line);
+      border-bottom: 1px solid var(--line);
+      text-align: left;
+      white-space: nowrap;
+    }
+
+    th {
+      position: sticky;
+      top: 0;
+      z-index: 1;
+      background: #eef3f1;
+      color: var(--muted);
+      font-weight: 850;
+    }
+
+    tr.selected td {
+      background: rgba(31, 122, 85, 0.12);
+    }
+
+    td.warn {
+      color: var(--orange-700);
+      font-weight: 850;
+    }
+
+    td.bad {
+      color: var(--red-700);
+      font-weight: 850;
+    }
+
+    .statusbar {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto auto auto;
+      align-items: center;
+      gap: 12px;
+      padding: 0 10px;
+      border-top: 1px solid var(--line);
+      background: #f7f9f8;
+      color: var(--muted);
+      font-size: 11px;
+    }
+
+    .statusbar strong {
+      color: var(--text);
+    }
+
+    .pane-tabs {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 4px;
+      padding: 6px;
+      border-bottom: 1px solid var(--line);
+      background: #f4f7f6;
+    }
+
+    .pane-tab {
+      height: 28px;
+      border-radius: 4px;
+      background: transparent;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 800;
+    }
+
+    .pane-tab.active {
+      background: var(--paper);
+      color: var(--blue-800);
+      box-shadow: 0 3px 10px rgba(24, 39, 34, 0.08);
+    }
+
+    .right-scroll {
+      height: calc(100% - 66px);
+      overflow: auto;
+      padding: 10px;
+    }
+
+    .tool-card {
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--paper);
+      margin-bottom: 10px;
+      overflow: hidden;
+    }
+
+    .tool-title {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      min-height: 34px;
+      padding: 0 9px;
+      border-bottom: 1px solid var(--line);
+      font-size: 13px;
+      font-weight: 850;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      height: 21px;
+      padding: 0 7px;
+      border-radius: 4px;
+      background: rgba(31, 122, 85, 0.12);
+      color: var(--green-700);
+      font-size: 11px;
+      font-weight: 850;
+      white-space: nowrap;
+    }
+
+    .badge.warn {
+      background: rgba(189, 107, 22, 0.12);
+      color: var(--orange-700);
+    }
+
+    .badge.bad {
+      background: rgba(189, 61, 53, 0.12);
+      color: var(--red-700);
+    }
+
+    .form-grid {
+      display: grid;
+      gap: 8px;
+      padding: 10px;
+    }
+
+    .form-row {
+      display: grid;
+      gap: 4px;
+      font-size: 12px;
+    }
+
+    .form-row label {
+      color: var(--muted);
+      font-weight: 750;
+    }
+
+    .form-row select,
+    .form-row input {
+      width: 100%;
+      min-width: 0;
+      height: 30px;
+      padding: 0 8px;
+      border: 1px solid var(--line);
+      border-radius: 4px;
+      background: #fbfcfc;
+      color: var(--text);
+    }
+
+    .run-button {
+      height: 32px;
+      border-radius: 4px;
+      background: var(--blue-800);
+      color: white;
+      font-size: 12px;
+      font-weight: 850;
+    }
+
+    .result-list {
+      display: grid;
+      gap: 7px;
+      padding: 10px;
+    }
+
+    .result-row {
+      display: grid;
+      grid-template-columns: 8px minmax(0, 1fr) auto;
+      align-items: center;
+      gap: 8px;
+      min-height: 28px;
+      font-size: 12px;
+    }
+
+    .result-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--green-700);
+    }
+
+    .result-dot.warn {
+      background: var(--orange-700);
+    }
+
+    .result-dot.bad {
+      background: var(--red-700);
+    }
+
+    .progress {
+      width: 70px;
+      height: 6px;
+      border-radius: 8px;
+      overflow: hidden;
+      background: rgba(28, 40, 36, 0.12);
+    }
+
+    .progress i {
+      display: block;
+      width: 68%;
+      height: 100%;
+      border-radius: inherit;
+      background: var(--blue-700);
+    }
+
+    .toast {
+      position: fixed;
+      left: 50%;
+      bottom: 18px;
+      z-index: 20;
+      max-width: min(440px, calc(100% - 28px));
+      padding: 9px 13px;
+      border-radius: var(--radius);
+      background: rgba(23, 32, 29, 0.92);
+      color: white;
+      font-size: 13px;
+      opacity: 0;
+      transform: translate(-50%, 12px);
+      pointer-events: none;
+      transition: opacity 180ms ease, transform 180ms ease;
+    }
+
+    .toast.show {
+      opacity: 1;
+      transform: translate(-50%, 0);
+    }
+
+    @media (max-width: 1180px) {
+      .workspace {
+        grid-template-columns: 262px minmax(400px, 1fr);
+      }
+
+      .right-pane {
+        display: none;
+      }
+    }
+
+    @media (max-width: 820px) {
+      .app {
+        grid-template-rows: 34px 96px minmax(0, 1fr);
+      }
+
+      .ribbon-group {
+        padding-inline: 7px;
+      }
+
+      .command {
+        min-width: 48px;
+      }
+
+      .workspace {
+        grid-template-columns: 1fr;
+      }
+
+      .left-pane {
+        display: none;
+      }
+
+      .map-area {
+        grid-template-rows: 34px minmax(0, 1fr) 212px 28px;
+      }
+
+      .map-callout {
+        display: none;
+      }
+    }
+
+    @media (max-width: 520px) {
+      .project-title {
+        display: none;
+      }
+
+      .quickbar {
+        grid-template-columns: minmax(0, 1fr) auto;
+      }
+
+      .ribbon-tabs {
+        padding-left: 4px;
+      }
+
+      .tab {
+        min-width: 54px;
+        padding-inline: 9px;
+      }
+
+      .command span:last-child {
+        display: none;
+      }
+
+      .command {
+        min-width: 38px;
+        min-height: 44px;
+      }
+
+      .attribute-head {
+        grid-template-columns: minmax(0, 1fr) auto;
+      }
+
+      .table-actions .small-button:not(.primary) {
+        display: none;
+      }
+
+      .statusbar {
+        grid-template-columns: minmax(0, 1fr) auto;
+      }
+
+      .statusbar span:nth-child(3),
+      .statusbar span:nth-child(4) {
+        display: none;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="app" aria-label="GeoNest Pro GIS 内业工作台">
+    <header class="quickbar">
+      <div class="brand">
+        <div class="brand-mark">GN</div>
+        <span>GeoNest Pro</span>
+      </div>
+      <div class="project-title">榆次区国土空间数据整编.aprx · 地图: 建设用地核查</div>
+      <div class="quick-actions">
+        <button class="quick-button" title="保存" aria-label="保存"><span class="glyph glyph-save"></span></button>
+        <button class="quick-button" title="撤销" aria-label="撤销"><span class="glyph glyph-undo"></span></button>
+        <button class="quick-button" title="重做" aria-label="重做"><span class="glyph glyph-redo"></span></button>
+      </div>
+    </header>
+
+    <section class="ribbon" aria-label="功能区">
+      <nav class="ribbon-tabs" aria-label="功能区选项卡">
+        <button class="tab">Project</button>
+        <button class="tab active">Map</button>
+        <button class="tab">Insert</button>
+        <button class="tab">Analysis</button>
+        <button class="tab">Edit</button>
+        <button class="tab">Imagery</button>
+        <button class="tab">View</button>
+        <button class="tab">Share</button>
+      </nav>
+      <div class="ribbon-body">
+        <section class="ribbon-group">
+          <div class="command-row">
+            <button class="command active" data-tool="select"><span class="glyph glyph-select"></span><span>Explore</span></button>
+            <button class="command" data-tool="map"><span class="glyph glyph-map"></span><span>Map View</span></button>
+            <button class="command" id="basemapButton"><span class="glyph glyph-basemap"></span><span>Basemap</span></button>
+          </div>
+          <div class="group-title">Navigate</div>
+        </section>
+        <section class="ribbon-group">
+          <div class="command-row">
+            <button class="command" id="addDataButton"><span class="glyph glyph-data"></span><span>Add Data</span></button>
+            <button class="command"><span class="glyph glyph-table"></span><span>Attribute</span></button>
+            <button class="command"><span class="glyph glyph-label"></span><span>Labeling</span></button>
+          </div>
+          <div class="group-title">Layer</div>
+        </section>
+        <section class="ribbon-group">
+          <div class="command-row">
+            <button class="command" data-tool="edit"><span class="glyph glyph-edit"></span><span>Create</span></button>
+            <button class="command"><span class="glyph glyph-topology"></span><span>Topology</span></button>
+            <button class="command"><span class="glyph glyph-table"></span><span>Fields</span></button>
+          </div>
+          <div class="group-title">Features</div>
+        </section>
+        <section class="ribbon-group">
+          <div class="command-row">
+            <button class="command" id="clipButton"><span class="glyph glyph-clip"></span><span>Clip</span></button>
+            <button class="command"><span class="glyph glyph-buffer"></span><span>Buffer</span></button>
+            <button class="command"><span class="glyph glyph-topology"></span><span>Repair</span></button>
+          </div>
+          <div class="group-title">Geoprocessing</div>
+        </section>
+        <section class="ribbon-group">
+          <div class="command-row">
+            <button class="command"><span class="glyph glyph-layout"></span><span>Layout</span></button>
+            <button class="command" id="exportButton"><span class="glyph glyph-export"></span><span>Export</span></button>
+          </div>
+          <div class="group-title">Output</div>
+        </section>
+      </div>
+    </section>
+
+    <section class="workspace">
+      <aside class="pane left-pane" aria-label="Contents">
+        <div class="pane-header">
+          <div class="pane-title">Contents</div>
+          <button class="pane-tool" aria-label="面板菜单">⋯</button>
+        </div>
+        <label class="search-line">
+          <span class="glyph glyph-search"></span>
+          <input value="Drawing Order" aria-label="搜索 Contents">
+        </label>
+        <div class="pane-scroll">
+          <div class="section-title">Map <span>4 layers</span></div>
+          <label class="layer-row active">
+            <input type="checkbox" data-layer="parcel" checked>
+            <span class="symbol poly"></span>
+            <span class="layer-name">建设用地面</span>
+            <span class="layer-meta">1,268</span>
+          </label>
+          <label class="layer-row">
+            <input type="checkbox" data-layer="road" checked>
+            <span class="symbol line"></span>
+            <span class="layer-name">道路中心线</span>
+            <span class="layer-meta">426</span>
+          </label>
+          <label class="layer-row">
+            <input type="checkbox" data-layer="zone" checked>
+            <span class="symbol zone"></span>
+            <span class="layer-name">规划分区</span>
+            <span class="layer-meta">32</span>
+          </label>
+          <label class="layer-row">
+            <input type="checkbox" data-layer="poi">
+            <span class="symbol point"></span>
+            <span class="layer-name">核查点位</span>
+            <span class="layer-meta">86</span>
+          </label>
+
+          <div class="section-title">Standalone Tables <span>2</span></div>
+          <label class="layer-row">
+            <input type="checkbox" checked>
+            <span class="glyph glyph-table"></span>
+            <span class="layer-name">地类代码表</span>
+            <span class="layer-meta">118</span>
+          </label>
+          <label class="layer-row">
+            <input type="checkbox">
+            <span class="glyph glyph-table"></span>
+            <span class="layer-name">质检错误清单</span>
+            <span class="layer-meta">7</span>
+          </label>
+
+          <div class="section-title">Catalog <span>Project</span></div>
+          <div class="catalog-item">
+            <div class="catalog-icon">GDB</div>
+            <div>
+              <strong>Yuci_landuse.gpkg</strong>
+              <span>GeoPackage · 96.8 MB</span>
+            </div>
+          </div>
+          <div class="catalog-item">
+            <div class="catalog-icon green">SHP</div>
+            <div>
+              <strong>road_centerline.shp</strong>
+              <span>Shapefile · UTF-8</span>
+            </div>
+          </div>
+          <div class="catalog-item">
+            <div class="catalog-icon purple">TIF</div>
+            <div>
+              <strong>dom_2025_yuci.tif</strong>
+              <span>Raster · 0.5 m</span>
+            </div>
+          </div>
+        </div>
+      </aside>
+
+      <section class="map-area" aria-label="地图文档">
+        <div class="document-tabs">
+          <button class="doc-tab active">Map: 建设用地核查</button>
+          <button class="doc-tab">Layout: A1 成果图</button>
+          <button class="doc-tab">Report: 质检报告</button>
+        </div>
+
+        <section class="map-frame" aria-label="地图画布">
+          <canvas id="mapCanvas"></canvas>
+          <div class="floating-tools" aria-label="地图快捷工具">
+            <button class="float-button active" data-tool="select" title="Select" aria-label="Select"><span class="glyph glyph-select"></span></button>
+            <button class="float-button" id="zoomIn" title="Zoom In" aria-label="Zoom In"><span class="glyph glyph-plus"></span></button>
+            <button class="float-button" id="zoomOut" title="Zoom Out" aria-label="Zoom Out"><span class="glyph glyph-minus"></span></button>
+            <button class="float-button" data-tool="edit" title="Edit" aria-label="Edit"><span class="glyph glyph-edit"></span></button>
+            <button class="float-button" data-tool="topology" title="Topology" aria-label="Topology"><span class="glyph glyph-topology"></span></button>
+          </div>
+          <div class="map-callout">
+            <b id="featureTitle">建设用地面 A-042</b>
+            <span id="featureMeta">工业用地 · 18,420 m² · 边界待复核</span>
+          </div>
+          <div class="scale">500 m</div>
+        </section>
+
+        <section class="attribute-panel" aria-label="属性表">
+          <div class="attribute-head">
+            <h2>Table: 建设用地面</h2>
+            <div class="table-actions">
+              <button class="small-button">Calculate Field</button>
+              <button class="small-button">Select By Attributes</button>
+              <button class="small-button primary" id="saveButton">Apply Edits</button>
+            </div>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>OBJECTID</th>
+                  <th>地块编号</th>
+                  <th>用地类型</th>
+                  <th>面积(m²)</th>
+                  <th>权属单位</th>
+                  <th>质检状态</th>
+                  <th>更新时间</th>
+                </tr>
+              </thead>
+              <tbody id="tableBody"></tbody>
+            </table>
+          </div>
+        </section>
+
+        <footer class="statusbar">
+          <span>Coordinate <strong id="coordText">112.84621, 37.51498</strong></span>
+          <span>Scale <strong>1:8,000</strong></span>
+          <span>Selected <strong id="selectedText">1</strong> / 1,268</span>
+          <span>Topology Errors <strong>7</strong></span>
+        </footer>
+      </section>
+
+      <aside class="pane right-pane" aria-label="Geoprocessing">
+        <div class="pane-header">
+          <div class="pane-title">Geoprocessing</div>
+          <button class="pane-tool" aria-label="固定面板">⌖</button>
+        </div>
+        <div class="pane-tabs">
+          <button class="pane-tab active">Tools</button>
+          <button class="pane-tab">Catalog</button>
+          <button class="pane-tab">Symbology</button>
+        </div>
+        <div class="right-scroll">
+          <label class="search-line" style="margin:0 0 10px">
+            <span class="glyph glyph-search"></span>
+            <input value="Clip" aria-label="搜索处理工具">
+          </label>
+
+          <section class="tool-card">
+            <div class="tool-title">
+              <span>Clip</span>
+              <span class="badge">Ready</span>
+            </div>
+            <div class="form-grid">
+              <div class="form-row">
+                <label>Input Features</label>
+                <select aria-label="Input Features">
+                  <option>建设用地面</option>
+                  <option>道路中心线</option>
+                </select>
+              </div>
+              <div class="form-row">
+                <label>Clip Features</label>
+                <select aria-label="Clip Features">
+                  <option>规划分区</option>
+                  <option>行政边界</option>
+                </select>
+              </div>
+              <div class="form-row">
+                <label>Output Feature Class</label>
+                <input value="landuse_clip_20260621" aria-label="Output Feature Class">
+              </div>
+              <button class="run-button" id="runButton">Run</button>
+            </div>
+          </section>
+
+          <section class="tool-card">
+            <div class="tool-title">
+              <span>Processing History</span>
+              <span class="badge warn">Running</span>
+            </div>
+            <div class="result-list">
+              <div class="result-row">
+                <i class="result-dot"></i>
+                <span>Repair Geometry</span>
+                <strong>Done</strong>
+              </div>
+              <div class="result-row">
+                <i class="result-dot warn"></i>
+                <span>Clip 建设用地面</span>
+                <div class="progress"><i></i></div>
+              </div>
+              <div class="result-row">
+                <i class="result-dot"></i>
+                <span>Dissolve by DLBM</span>
+                <strong>Queued</strong>
+              </div>
+            </div>
+          </section>
+
+          <section class="tool-card">
+            <div class="tool-title">
+              <span>Data Reviewer</span>
+              <span class="badge bad">7</span>
+            </div>
+            <div class="result-list">
+              <div class="result-row">
+                <i class="result-dot bad"></i>
+                <span>面重叠检查</span>
+                <strong>3</strong>
+              </div>
+              <div class="result-row">
+                <i class="result-dot warn"></i>
+                <span>属性值域检查</span>
+                <strong>4</strong>
+              </div>
+              <div class="result-row">
+                <i class="result-dot"></i>
+                <span>坐标系一致性</span>
+                <strong>Pass</strong>
+              </div>
+            </div>
+          </section>
+        </div>
+      </aside>
+    </section>
+  </main>
+
+  <div class="toast" id="toast">Ready</div>
+
+  <script>
+    const canvas = document.getElementById('mapCanvas');
+    const ctx = canvas.getContext('2d');
+    const tableBody = document.getElementById('tableBody');
+    const coordText = document.getElementById('coordText');
+    const featureTitle = document.getElementById('featureTitle');
+    const featureMeta = document.getElementById('featureMeta');
+    const toast = document.getElementById('toast');
+    const selectedText = document.getElementById('selectedText');
+
+    const layerState = {
+      parcel: true,
+      road: true,
+      zone: true,
+      poi: false
+    };
+
+    const view = {
+      zoom: 1,
+      panX: 0,
+      panY: 0
+    };
+
+    let selectedIndex = 1;
+    let activeTool = 'select';
+    let isPointerDown = false;
+    let lastPointerX = 0;
+    let lastPointerY = 0;
+    let toastTimer = 0;
+
+    const parcels = [
+      { oid: 1017, id: 'A-017', type: '仓储用地', area: 9780, owner: '北田物流园', check: '通过', time: '2026-06-18', points: [[166, 190], [310, 150], [394, 242], [346, 375], [188, 338]] },
+      { oid: 1042, id: 'A-042', type: '工业用地', area: 18420, owner: '晋中开发区管委会', check: '边界待复核', time: '2026-06-19', points: [[442, 178], [682, 206], [718, 382], [538, 458], [414, 344]] },
+      { oid: 1103, id: 'B-103', type: '公共设施', area: 6360, owner: '榆次区住建局', check: '属性待补', time: '2026-06-20', points: [[204, 476], [352, 430], [440, 542], [394, 692], [228, 648]] },
+      { oid: 2011, id: 'C-011', type: '居住用地', area: 14960, owner: '新城社区', check: '通过', time: '2026-06-18', points: [[628, 516], [820, 460], [906, 604], [796, 742], [616, 688]] },
+      { oid: 2079, id: 'D-079', type: '耕地保护', area: 21310, owner: '郭家堡乡', check: '重叠错误', time: '2026-06-20', points: [[122, 728], [324, 716], [420, 862], [264, 942], [96, 876]] },
+      { oid: 2126, id: 'D-126', type: '商业服务', area: 8240, owner: '汇通街道办', check: '通过', time: '2026-06-17', points: [[710, 116], [880, 142], [914, 254], [774, 306], [680, 228]] }
+    ];
+
+    const roads = [
+      [[80, 132], [236, 236], [356, 378], [534, 522], [806, 668], [960, 806]],
+      [[40, 566], [214, 528], [388, 514], [596, 474], [860, 374], [990, 316]],
+      [[520, 72], [506, 252], [556, 426], [602, 624], [584, 928]],
+      [[118, 420], [298, 362], [532, 310], [728, 240], [944, 202]]
+    ];
+
+    const zones = [
+      [[72, 88], [468, 78], [506, 420], [166, 468]],
+      [[520, 80], [982, 120], [920, 500], [514, 442]],
+      [[96, 512], [472, 484], [448, 948], [68, 902]],
+      [[508, 500], [1008, 454], [954, 956], [530, 918]]
+    ];
+
+    const pois = [
+      [252, 254],
+      [562, 312],
+      [294, 584],
+      [748, 598],
+      [210, 812],
+      [852, 284]
+    ];
+
+    function resizeCanvas() {
+      const rect = canvas.getBoundingClientRect();
+      const ratio = window.devicePixelRatio || 1;
+      canvas.width = Math.max(1, Math.floor(rect.width * ratio));
+      canvas.height = Math.max(1, Math.floor(rect.height * ratio));
+      ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+      drawMap();
+    }
+
+    function worldScale() {
+      const rect = canvas.getBoundingClientRect();
+      return Math.min(rect.width, rect.height) / 1080 * view.zoom;
+    }
+
+    function worldToScreen(point) {
+      const rect = canvas.getBoundingClientRect();
+      const scale = worldScale();
+      const offsetX = rect.width * 0.5 - 500 * scale + view.panX;
+      const offsetY = rect.height * 0.5 - 500 * scale + view.panY;
+      return [offsetX + point[0] * scale, offsetY + point[1] * scale];
+    }
+
+    function screenToWorld(x, y) {
+      const rect = canvas.getBoundingClientRect();
+      const scale = worldScale();
+      const offsetX = rect.width * 0.5 - 500 * scale + view.panX;
+      const offsetY = rect.height * 0.5 - 500 * scale + view.panY;
+      return [(x - offsetX) / scale, (y - offsetY) / scale];
+    }
+
+    function drawPath(points) {
+      const first = worldToScreen(points[0]);
+      ctx.beginPath();
+      ctx.moveTo(first[0], first[1]);
+      for (let i = 1; i < points.length; i += 1) {
+        const p = worldToScreen(points[i]);
+        ctx.lineTo(p[0], p[1]);
+      }
+    }
+
+    function drawClosedPath(points) {
+      drawPath(points);
+      ctx.closePath();
+    }
+
+    function drawGrid() {
+      ctx.save();
+      ctx.strokeStyle = 'rgba(40, 66, 58, 0.10)';
+      ctx.lineWidth = 1;
+      for (let i = -200; i <= 1200; i += 80) {
+        const top = worldToScreen([i, -200]);
+        const bottom = worldToScreen([i, 1200]);
+        ctx.beginPath();
+        ctx.moveTo(top[0], top[1]);
+        ctx.lineTo(bottom[0], bottom[1]);
+        ctx.stroke();
+
+        const left = worldToScreen([-200, i]);
+        const right = worldToScreen([1200, i]);
+        ctx.beginPath();
+        ctx.moveTo(left[0], left[1]);
+        ctx.lineTo(right[0], right[1]);
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
+
+    function drawZones() {
+      if (!layerState.zone) {
+        return;
+      }
+      ctx.save();
+      for (let i = 0; i < zones.length; i += 1) {
+        drawClosedPath(zones[i]);
+        ctx.fillStyle = i % 2 === 0 ? 'rgba(111, 89, 181, 0.08)' : 'rgba(35, 90, 166, 0.07)';
+        ctx.strokeStyle = i % 2 === 0 ? 'rgba(111, 89, 181, 0.42)' : 'rgba(35, 90, 166, 0.36)';
+        ctx.setLineDash([8, 6]);
+        ctx.lineWidth = 1.5;
+        ctx.fill();
+        ctx.stroke();
+      }
+      ctx.setLineDash([]);
+      ctx.restore();
+    }
+
+    function drawParcels() {
+      if (!layerState.parcel) {
+        return;
+      }
+      ctx.save();
+      for (let i = 0; i < parcels.length; i += 1) {
+        const parcel = parcels[i];
+        drawClosedPath(parcel.points);
+        const selected = i === selectedIndex;
+        const failed = parcel.check === '重叠错误';
+        ctx.fillStyle = selected ? 'rgba(31, 122, 85, 0.36)' : 'rgba(63, 155, 109, 0.18)';
+        ctx.strokeStyle = selected ? '#12573b' : failed ? 'rgba(189, 61, 53, 0.78)' : 'rgba(31, 122, 85, 0.60)';
+        ctx.lineWidth = selected ? 3 : 1.5;
+        ctx.fill();
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
+
+    function drawRoads() {
+      if (!layerState.road) {
+        return;
+      }
+      ctx.save();
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      for (let i = 0; i < roads.length; i += 1) {
+        drawPath(roads[i]);
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.88)';
+        ctx.lineWidth = 12 * worldScale();
+        ctx.stroke();
+        drawPath(roads[i]);
+        ctx.strokeStyle = 'rgba(35, 90, 166, 0.68)';
+        ctx.lineWidth = 3.5 * worldScale();
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
+
+    function drawPois() {
+      if (!layerState.poi) {
+        return;
+      }
+      ctx.save();
+      for (let i = 0; i < pois.length; i += 1) {
+        const p = worldToScreen([pois[i][0], pois[i][1]]);
+        ctx.beginPath();
+        ctx.arc(p[0], p[1], 6, 0, Math.PI * 2);
+        ctx.fillStyle = '#bd6b16';
+        ctx.fill();
+        ctx.lineWidth = 3;
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.9)';
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
+
+    function drawLabels() {
+      ctx.save();
+      ctx.font = '700 12px "HarmonyOS Sans", "Segoe UI", sans-serif';
+      ctx.fillStyle = 'rgba(23, 32, 29, 0.72)';
+      ctx.textBaseline = 'middle';
+      const labels = [
+        [246, 110, '汇通北路'],
+        [714, 432, '龙湖街'],
+        [530, 758, '郭家堡片区'],
+        [738, 92, '规划分区 02']
+      ];
+      for (let i = 0; i < labels.length; i += 1) {
+        const p = worldToScreen([labels[i][0], labels[i][1]]);
+        ctx.fillText(labels[i][2], p[0], p[1]);
+      }
+      ctx.restore();
+    }
+
+    function drawMap() {
+      const rect = canvas.getBoundingClientRect();
+      ctx.clearRect(0, 0, rect.width, rect.height);
+      const gradient = ctx.createLinearGradient(0, 0, rect.width, rect.height);
+      gradient.addColorStop(0, '#eef4ef');
+      gradient.addColorStop(0.58, '#dbe7e2');
+      gradient.addColorStop(1, '#d5e1e7');
+      ctx.fillStyle = gradient;
+      ctx.fillRect(0, 0, rect.width, rect.height);
+      drawGrid();
+      drawZones();
+      drawParcels();
+      drawRoads();
+      drawPois();
+      drawLabels();
+    }
+
+    function polygonCenter(points) {
+      let x = 0;
+      let y = 0;
+      for (let i = 0; i < points.length; i += 1) {
+        x += points[i][0];
+        y += points[i][1];
+      }
+      return [x / points.length, y / points.length];
+    }
+
+    function pickParcel(x, y) {
+      const world = screenToWorld(x, y);
+      let nearest = -1;
+      let best = 999999;
+      for (let i = 0; i < parcels.length; i += 1) {
+        const center = polygonCenter(parcels[i].points);
+        const dx = center[0] - world[0];
+        const dy = center[1] - world[1];
+        const distance = Math.sqrt(dx * dx + dy * dy);
+        if (distance < best) {
+          best = distance;
+          nearest = i;
+        }
+      }
+      if (nearest >= 0 && best < 230) {
+        selectedIndex = nearest;
+        updateSelection();
+        drawMap();
+      }
+    }
+
+    function formatArea(value) {
+      return value.toLocaleString('zh-CN') + ' m²';
+    }
+
+    function updateSelection() {
+      const parcel = parcels[selectedIndex];
+      featureTitle.textContent = '建设用地面 ' + parcel.id;
+      featureMeta.textContent = parcel.type + ' · ' + formatArea(parcel.area) + ' · ' + parcel.check;
+      selectedText.textContent = '1';
+      const rows = tableBody.querySelectorAll('tr');
+      for (let i = 0; i < rows.length; i += 1) {
+        rows[i].classList.toggle('selected', i === selectedIndex);
+      }
+    }
+
+    function updateCoordinate(x, y) {
+      const world = screenToWorld(x, y);
+      const lng = 112.80000 + world[0] * 0.000092;
+      const lat = 37.47000 + (1000 - world[1]) * 0.000082;
+      coordText.textContent = lng.toFixed(5) + ', ' + lat.toFixed(5);
+    }
+
+    function showToast(text) {
+      toast.textContent = text;
+      toast.classList.add('show');
+      window.clearTimeout(toastTimer);
+      toastTimer = window.setTimeout(() => {
+        toast.classList.remove('show');
+      }, 1400);
+    }
+
+    function setActiveTool(tool) {
+      activeTool = tool;
+      const buttons = document.querySelectorAll('[data-tool]');
+      for (let i = 0; i < buttons.length; i += 1) {
+        buttons[i].classList.toggle('active', buttons[i].dataset.tool === tool);
+      }
+      showToast(tool === 'edit' ? 'Edit tool active' : tool === 'topology' ? 'Topology review active' : 'Explore tool active');
+    }
+
+    function renderTable() {
+      tableBody.innerHTML = '';
+      for (let i = 0; i < parcels.length; i += 1) {
+        const parcel = parcels[i];
+        const row = document.createElement('tr');
+        row.className = i === selectedIndex ? 'selected' : '';
+        row.innerHTML =
+          '<td>' + parcel.oid + '</td>' +
+          '<td>' + parcel.id + '</td>' +
+          '<td>' + parcel.type + '</td>' +
+          '<td>' + parcel.area.toLocaleString('zh-CN') + '</td>' +
+          '<td>' + parcel.owner + '</td>' +
+          '<td class="' + (parcel.check === '重叠错误' ? 'bad' : parcel.check === '通过' ? '' : 'warn') + '">' + parcel.check + '</td>' +
+          '<td>' + parcel.time + '</td>';
+        row.addEventListener('click', () => {
+          selectedIndex = i;
+          updateSelection();
+          drawMap();
+        });
+        tableBody.appendChild(row);
+      }
+    }
+
+    document.querySelectorAll('[data-layer]').forEach((checkbox) => {
+      checkbox.addEventListener('change', () => {
+        layerState[checkbox.dataset.layer] = checkbox.checked;
+        drawMap();
+      });
+    });
+
+    document.querySelectorAll('[data-tool]').forEach((button) => {
+      button.addEventListener('click', () => {
+        setActiveTool(button.dataset.tool);
+      });
+    });
+
+    document.querySelectorAll('.tab').forEach((button) => {
+      button.addEventListener('click', () => {
+        document.querySelectorAll('.tab').forEach((item) => {
+          item.classList.toggle('active', item === button);
+        });
+      });
+    });
+
+    document.querySelectorAll('.pane-tab').forEach((button) => {
+      button.addEventListener('click', () => {
+        document.querySelectorAll('.pane-tab').forEach((item) => {
+          item.classList.toggle('active', item === button);
+        });
+      });
+    });
+
+    document.querySelectorAll('.doc-tab').forEach((button) => {
+      button.addEventListener('click', () => {
+        document.querySelectorAll('.doc-tab').forEach((item) => {
+          item.classList.toggle('active', item === button);
+        });
+        showToast(button.textContent);
+      });
+    });
+
+    document.getElementById('zoomIn').addEventListener('click', () => {
+      view.zoom = Math.min(2.4, view.zoom * 1.16);
+      drawMap();
+    });
+
+    document.getElementById('zoomOut').addEventListener('click', () => {
+      view.zoom = Math.max(0.72, view.zoom * 0.86);
+      drawMap();
+    });
+
+    document.getElementById('addDataButton').addEventListener('click', () => {
+      showToast('Add Data dialog opened');
+    });
+
+    document.getElementById('basemapButton').addEventListener('click', () => {
+      showToast('Basemap gallery opened');
+    });
+
+    document.getElementById('clipButton').addEventListener('click', () => {
+      showToast('Clip tool selected');
+    });
+
+    document.getElementById('runButton').addEventListener('click', () => {
+      showToast('Geoprocessing job started');
+    });
+
+    document.getElementById('saveButton').addEventListener('click', () => {
+      showToast('Edits applied to workspace');
+    });
+
+    document.getElementById('exportButton').addEventListener('click', () => {
+      showToast('Export package task created');
+    });
+
+    canvas.addEventListener('pointerdown', (event) => {
+      isPointerDown = true;
+      lastPointerX = event.clientX;
+      lastPointerY = event.clientY;
+      canvas.setPointerCapture(event.pointerId);
+      if (activeTool === 'select') {
+        pickParcel(event.offsetX, event.offsetY);
+      }
+    });
+
+    canvas.addEventListener('pointermove', (event) => {
+      updateCoordinate(event.offsetX, event.offsetY);
+      if (!isPointerDown) {
+        return;
+      }
+      if (event.buttons === 1) {
+        view.panX += event.clientX - lastPointerX;
+        view.panY += event.clientY - lastPointerY;
+        lastPointerX = event.clientX;
+        lastPointerY = event.clientY;
+        drawMap();
+      }
+    });
+
+    canvas.addEventListener('pointerup', () => {
+      isPointerDown = false;
+    });
+
+    canvas.addEventListener('pointercancel', () => {
+      isPointerDown = false;
+    });
+
+    canvas.addEventListener('wheel', (event) => {
+      event.preventDefault();
+      const delta = event.deltaY < 0 ? 1.1 : 0.9;
+      view.zoom = Math.min(2.4, Math.max(0.72, view.zoom * delta));
+      drawMap();
+    }, { passive: false });
+
+    window.addEventListener('resize', resizeCanvas);
+    renderTable();
+    updateSelection();
+    resizeCanvas();
+  </script>
+</body>
+</html>

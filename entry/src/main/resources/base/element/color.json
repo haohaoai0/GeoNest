@@ -1,0 +1,224 @@
+{
+  "color": [
+    {
+      "name": "start_window_background",
+      "value": "#FFFFFF"
+    },
+    {
+      "name": "gn_launch_background",
+      "value": "#FFFFFF"
+    },
+    {
+      "name": "gn_launch_text",
+      "value": "#17201D"
+    },
+    {
+      "name": "gn_launch_muted",
+      "value": "#66736D"
+    },
+    {
+      "name": "gn_launch_ring_blue",
+      "value": "#332388E8"
+    },
+    {
+      "name": "gn_launch_ring_green",
+      "value": "#3355B85A"
+    },
+    {
+      "name": "gn_launch_pulse",
+      "value": "#142388E8"
+    },
+    {
+      "name": "gn_launch_progress",
+      "value": "#2388E8"
+    },
+    {
+      "name": "gn_launch_track",
+      "value": "#D6DEDA"
+    },
+    {
+      "name": "gn_blue_900",
+      "value": "#173D73"
+    },
+    {
+      "name": "gn_blue_800",
+      "value": "#1D4F91"
+    },
+    {
+      "name": "gn_blue_700",
+      "value": "#235AA6"
+    },
+    {
+      "name": "gn_blue_100",
+      "value": "#EAF1FB"
+    },
+    {
+      "name": "gn_green_700",
+      "value": "#1F7A55"
+    },
+    {
+      "name": "gn_orange_700",
+      "value": "#BD6B16"
+    },
+    {
+      "name": "gn_red_700",
+      "value": "#BD3D35"
+    },
+    {
+      "name": "gn_purple_700",
+      "value": "#6F59B5"
+    },
+    {
+      "name": "gn_bg",
+      "value": "#DFE5E3"
+    },
+    {
+      "name": "gn_pane",
+      "value": "#F7F9F8"
+    },
+    {
+      "name": "gn_pane_alt",
+      "value": "#EEF3F1"
+    },
+    {
+      "name": "gn_paper",
+      "value": "#FFFFFF"
+    },
+    {
+      "name": "gn_text_primary",
+      "value": "#17201D"
+    },
+    {
+      "name": "gn_text_muted",
+      "value": "#66736D"
+    },
+    {
+      "name": "gn_line",
+      "value": "#D6DEDA"
+    },
+    {
+      "name": "gn_line_strong",
+      "value": "#C3CCC7"
+    },
+    {
+      "name": "gn_map_bg",
+      "value": "#DBE7E2"
+    },
+    {
+      "name": "gn_map_grid",
+      "value": "#CAD7D1"
+    },
+    {
+      "name": "gn_map_parcel",
+      "value": "#B8D7C9"
+    },
+    {
+      "name": "gn_map_parcel_selected",
+      "value": "#8EC4AA"
+    },
+    {
+      "name": "gn_map_zone",
+      "value": "#D8D4EA"
+    },
+    {
+      "name": "gn_map_road",
+      "value": "#83A8DA"
+    },
+    {
+      "name": "gn_selected_row",
+      "value": "#E1EFE9"
+    },
+    {
+      "name": "gn_warning_bg",
+      "value": "#F8EEE3"
+    },
+    {
+      "name": "gn_error_bg",
+      "value": "#F8E8E6"
+    },
+    {
+      "name": "gn_arc_window",
+      "value": "#F3F4F6"
+    },
+    {
+      "name": "gn_arc_active",
+      "value": "#E8EEF7"
+    },
+    {
+      "name": "gn_arc_selected",
+      "value": "#EAF3FF"
+    },
+    {
+      "name": "gn_arc_focus",
+      "value": "#188BDB"
+    },
+    {
+      "name": "gn_arc_canvas",
+      "value": "#FBFCFD"
+    },
+    {
+      "name": "gn_qgis_window",
+      "value": "#F0F0F0"
+    },
+    {
+      "name": "gn_qgis_toolbar",
+      "value": "#EEEEEE"
+    },
+    {
+      "name": "gn_qgis_panel",
+      "value": "#F5F5F5"
+    },
+    {
+      "name": "gn_qgis_panel_header",
+      "value": "#EFEFEF"
+    },
+    {
+      "name": "gn_qgis_border",
+      "value": "#B9B9B9"
+    },
+    {
+      "name": "gn_qgis_selected",
+      "value": "#DCEBFA"
+    },
+    {
+      "name": "gn_qgis_menu_active",
+      "value": "#0078D7"
+    },
+    {
+      "name": "gn_qgis_menu_bg",
+      "value": "#FFFFFF"
+    },
+    {
+      "name": "gn_qgis_tool_selected",
+      "value": "#D7E8FF"
+    },
+    {
+      "name": "gn_qgis_disabled",
+      "value": "#AEB4B8"
+    },
+    {
+      "name": "gn_qgis_template_bg",
+      "value": "#ECECEC"
+    },
+    {
+      "name": "gn_qgis_template_dash",
+      "value": "#C9C9C9"
+    },
+    {
+      "name": "gn_qgis_notice_bg",
+      "value": "#E6F4DE"
+    },
+    {
+      "name": "gn_qgis_status",
+      "value": "#F5F5F5"
+    },
+    {
+      "name": "gn_qgis_green",
+      "value": "#4C9A2A"
+    },
+    {
+      "name": "gn_qgis_shadow",
+      "value": "#33000000"
+    }
+  ]
+}

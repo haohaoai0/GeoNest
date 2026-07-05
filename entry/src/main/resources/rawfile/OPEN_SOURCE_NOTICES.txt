@@ -1,0 +1,18 @@
+GeoNest Open Source Notices
+
+Copyright (C) 2026 Fanha and GeoNest contributors.
+
+GeoNest is free software distributed under GNU GPL version 2 or, at
+your option, any later version. You may copy, modify, and redistribute
+it under that license.
+
+GeoNest is provided WITHOUT ANY WARRANTY, including without the implied
+warranties of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+
+The complete release build replaces this notice payload with the full
+contents of LICENSE, COPYING, THIRD_PARTY_NOTICES.md, and
+SOURCE_OFFER.txt. The same release directory contains matching source
+archives for GeoNest, modified QGIS, modified Qt, and native
+dependencies, together with SOURCE-MANIFEST.txt and checksums.
+
+Development builds can read the complete texts from the project root.
