@@ -49,6 +49,37 @@ export class QualityIssue {
   }
 }
 
+export class GisSpatialSelectionResult {
+  ok: boolean = false;
+  code: number = 0;
+  featureIds: string[] = [];
+  matchedCount: number = 0;
+  truncated: boolean = false;
+  message: string = '';
+
+  constructor(ok: boolean, code: number, featureIds: string[], matchedCount: number,
+    truncated: boolean, message: string) {
+    this.ok = ok;
+    this.code = code;
+    this.featureIds = featureIds;
+    this.matchedCount = matchedCount;
+    this.truncated = truncated;
+    this.message = message;
+  }
+}
+
+export class GisLayerSelection {
+  layerIndex: number = -1;
+  layerName: string = '';
+  featureIds: string[] = [];
+
+  constructor(layerIndex: number, layerName: string, featureIds: string[]) {
+    this.layerIndex = layerIndex;
+    this.layerName = layerName;
+    this.featureIds = featureIds;
+  }
+}
+
 export class ToolAction {
   title: string = '';
   description: string = '';
@@ -77,22 +108,6 @@ export class GeoNestProjectParameters {
     this.mapName = mapName;
     this.workspaceName = workspaceName;
     this.description = description;
-  }
-}
-
-export class RecentProjectRecord {
-  uri: string = '';
-  name: string = '';
-  owner: string = '';
-  crs: string = '';
-  workspaceName: string = '';
-
-  constructor(uri: string, name: string, owner: string, crs: string, workspaceName: string) {
-    this.uri = uri;
-    this.name = name;
-    this.owner = owner;
-    this.crs = crs;
-    this.workspaceName = workspaceName;
   }
 }
 
@@ -256,12 +271,16 @@ export class GisCoordinate {
   y: number = 0;
   z: number = 0;
   hasZ: boolean = false;
+  m: number = 0;
+  hasM: boolean = false;
 
-  constructor(x: number, y: number, z: number, hasZ: boolean) {
+  constructor(x: number, y: number, z: number, hasZ: boolean, m: number = 0, hasM: boolean = false) {
     this.x = x;
     this.y = y;
     this.z = z;
     this.hasZ = hasZ;
+    this.m = m;
+    this.hasM = hasM;
   }
 }
 
@@ -291,6 +310,8 @@ export class GisLayerInfo {
   layerId: string = '';
   name: string = '';
   geometryType: number = 0;
+  hasZ: boolean = false;
+  hasM: boolean = false;
   featureCount: number = 0;
   envelope: GisEnvelope = new GisEnvelope(0, 0, 0, 0);
   crs: string = '';
@@ -316,6 +337,16 @@ export class GisLayerInfo {
     this.envelope = envelope;
     this.crs = crs;
     this.fields = fields;
+  }
+}
+
+export class GisVectorSublayerInfo {
+  name: string = '';
+  uri: string = '';
+
+  constructor(name: string, uri: string) {
+    this.name = name;
+    this.uri = uri;
   }
 }
 
@@ -365,15 +396,179 @@ export class GisGeoProcessResult {
   outputPath: string = '';
   outputLayerName: string = '';
   featureCount: number = 0;
+  executionId: string = '';
+  elapsedMs: number = 0;
+  outputLoaded: boolean = false;
 
   constructor(ok: boolean, code: number, message: string, outputPath: string, outputLayerName: string,
-    featureCount: number) {
+    featureCount: number, executionId: string = '', elapsedMs: number = 0, outputLoaded: boolean = false) {
     this.ok = ok;
     this.code = code;
     this.message = message;
     this.outputPath = outputPath;
     this.outputLayerName = outputLayerName;
     this.featureCount = featureCount;
+    this.executionId = executionId;
+    this.elapsedMs = elapsedMs;
+    this.outputLoaded = outputLoaded;
+  }
+}
+
+export const GIS_PROCESSING_TASK_QUEUED: string = 'queued';
+export const GIS_PROCESSING_TASK_RUNNING: string = 'running';
+export const GIS_PROCESSING_TASK_CANCEL_REQUESTED: string = 'cancelRequested';
+export const GIS_PROCESSING_TASK_SUCCEEDED: string = 'succeeded';
+export const GIS_PROCESSING_TASK_FAILED: string = 'failed';
+export const GIS_PROCESSING_TASK_CANCELED: string = 'canceled';
+export const GIS_PROCESSING_TASK_NOT_FOUND: string = 'notFound';
+export const GIS_PROCESSING_TASK_STATUS_UNAVAILABLE: string = 'statusUnavailable';
+
+export class GisProcessingTaskRequest {
+  algorithmId: string = '';
+  inputLayerIndex: number = -1;
+  overlayLayerIndex: number = -1;
+  numericValue: number = 0;
+  textValue: string = '';
+  outputPath: string = '';
+  outputLayerName: string = '';
+
+  constructor(algorithmId: string, inputLayerIndex: number, overlayLayerIndex: number,
+    numericValue: number, textValue: string, outputPath: string, outputLayerName: string) {
+    this.algorithmId = algorithmId;
+    this.inputLayerIndex = inputLayerIndex;
+    this.overlayLayerIndex = overlayLayerIndex;
+    this.numericValue = numericValue;
+    this.textValue = textValue;
+    this.outputPath = outputPath;
+    this.outputLayerName = outputLayerName;
+  }
+}
+
+export class GisProcessingTaskSnapshot {
+  taskId: string = '';
+  algorithmId: string = '';
+  state: string = GIS_PROCESSING_TASK_NOT_FOUND;
+  progress: number = 0;
+  processedCount: number = 0;
+  stage: string = '';
+  message: string = '';
+  errCode: number = 0;
+  elapsedMs: number = 0;
+  cancelRequested: boolean = false;
+  done: boolean = false;
+  result: GisGeoProcessResult | null = null;
+
+  constructor(taskId: string, algorithmId: string, state: string, progress: number,
+    processedCount: number, stage: string, message: string, errCode: number, elapsedMs: number,
+    cancelRequested: boolean, done: boolean, result: GisGeoProcessResult | null = null) {
+    this.taskId = taskId;
+    this.algorithmId = algorithmId;
+    this.state = state;
+    this.progress = progress;
+    this.processedCount = processedCount;
+    this.stage = stage;
+    this.message = message;
+    this.errCode = errCode;
+    this.elapsedMs = elapsedMs;
+    this.cancelRequested = cancelRequested;
+    this.done = done;
+    this.result = result;
+  }
+}
+
+export class GisProcessingAlgorithm {
+  id: string = '';
+  name: string = '';
+  category: string = '';
+  inputCount: number = 0;
+  numericParameter: boolean = false;
+  textParameter: boolean = false;
+
+  constructor(id: string, name: string, category: string, inputCount: number, numericParameter: boolean,
+    textParameter: boolean) {
+    this.id = id;
+    this.name = name;
+    this.category = category;
+    this.inputCount = inputCount;
+    this.numericParameter = numericParameter;
+    this.textParameter = textParameter;
+  }
+}
+
+export class GisProcessingCatalog {
+  backend: string = '';
+  algorithms: GisProcessingAlgorithm[] = [];
+
+  constructor(backend: string, algorithms: GisProcessingAlgorithm[]) {
+    this.backend = backend;
+    this.algorithms = algorithms;
+  }
+}
+
+export class GisPointCloudAttributeInfo {
+  name: string = '';
+  typeName: string = '';
+  size: number = 0;
+}
+
+export class GisPointCloudInfo {
+  ok: boolean = false;
+  code: number = 0;
+  message: string = '';
+  filePath: string = '';
+  format: string = '';
+  pointCount: number = 0;
+  pointFormat: number = 0;
+  version: string = '';
+  crs: string = '';
+  minX: number = 0;
+  minY: number = 0;
+  minZ: number = 0;
+  maxX: number = 0;
+  maxY: number = 0;
+  maxZ: number = 0;
+  scaleX: number = 0;
+  scaleY: number = 0;
+  scaleZ: number = 0;
+  offsetX: number = 0;
+  offsetY: number = 0;
+  offsetZ: number = 0;
+  attributes: GisPointCloudAttributeInfo[] = [];
+}
+
+export class GisQgisProjectLayerRef {
+  name: string = '';
+  sourcePath: string = '';
+  layerType: string = '';
+  visible: boolean = true;
+
+  constructor(name: string, sourcePath: string, layerType: string, visible: boolean) {
+    this.name = name;
+    this.sourcePath = sourcePath;
+    this.layerType = layerType;
+    this.visible = visible;
+  }
+}
+
+export class GisQgisProjectReadResult {
+  ok: boolean = false;
+  code: number = 0;
+  message: string = '';
+  projectTitle: string = '';
+  projectCrs: string = '';
+  layerCount: number = 0;
+  loadedCount: number = 0;
+  layers: GisQgisProjectLayerRef[] = [];
+
+  constructor(ok: boolean, code: number, message: string, projectTitle: string, projectCrs: string,
+    layerCount: number, layers: GisQgisProjectLayerRef[]) {
+    this.ok = ok;
+    this.code = code;
+    this.message = message;
+    this.projectTitle = projectTitle;
+    this.projectCrs = projectCrs;
+    this.layerCount = layerCount;
+    this.layers = layers;
   }
 }
 

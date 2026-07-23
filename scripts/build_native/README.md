@@ -7,12 +7,13 @@ Dependency order:
 1. zlib
 2. sqlite
 3. libexpat
-4. PROJ
-5. GEOS
-6. GDAL/OGR
-7. Qt6 Core/Gui/Widgets/Network/Xml/Svg/Concurrent/Test/Sql for OHOS
-8. QGIS Core
-9. GeoNest native bridge
+4. FreeXL (legacy XLS)
+5. PROJ
+6. GEOS
+7. GDAL/OGR
+8. Qt6 Core/Gui/Widgets/Network/Xml/Svg/Concurrent/Test/Sql for OHOS
+9. QGIS Core
+10. GeoNest native bridge
 
 Current selected HAP backend:
 
@@ -109,5 +110,6 @@ Dependency scripts currently added:
 - `build_geos_ohos.ps1`: builds GEOS into `stage/<abi>`.
 - `build_gdal_ohos.ps1`: builds the default GDAL/OGR backend into `stage/<abi>`.
 - `build_expat_ohos.ps1`: builds EXPAT for the optional QGIS Core route.
+- `build_freexl_ohos.ps1`: builds the lightweight FreeXL legacy XLS reader used by GDAL/OGR.
 - `build_libzip_ohos.ps1`: builds LibZip for the optional QGIS Core route.
 - `build_protobuf_ohos.ps1`: builds Protobuf for the optional QGIS Core route.

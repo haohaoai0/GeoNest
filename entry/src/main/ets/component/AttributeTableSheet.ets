@@ -1,8 +1,17 @@
 import { HdsNavigation, HdsNavigationTitleMode, IconStyleMode, ScrollEffectType } from '@kit.UIDesignKit';
 import { hdsMaterial } from '@hms.hds.hdsMaterial';
-import { MaterialStyle } from '../utils/MaterialStyle';
+import { MaterialStyle } from '@geonest/common';
 import { getGisService, GisLoadedLayer, qgisCategoryTotal, qgisRampColor } from '../gis/GisService';
-import { GisAttributeValue, GisFeatureSummary, GisFieldInfo } from '../model/GeoNestModels';
+import {
+  GisAttributeValue,
+  GisFeaturePage,
+  GisFeatureSummary,
+  GisFieldInfo,
+  GisOperationResult
+} from '../model/GeoNestModels';
+
+const ATTRIBUTE_PAGE_SIZE: number = 500;
+const ATTRIBUTE_PAGE_DELAY_MS: number = 16;
 
 class DialogLayerChoice {
   name: string = '';
@@ -27,14 +36,37 @@ export struct AttributeTableSheet {
   @StorageLink('gnMaterialEnabled') materialEnabled: boolean = true;
   private scroller: Scroller = new Scroller();
   activeLayerRevision: number = 0;
+  @Prop selectedFeatureIds: string[] = [];
+  @Prop selectedFeatureLayerIndex: number = -1;
+  @Prop selectionRevision: number = 0;
   onLocateFeature: (featureId: string, layerIndex: number) => void = () => {};
+  onToggleFeature: (featureId: string, layerIndex: number) => void = () => {};
+  onReplaceSelection: (featureIds: string[], layerIndex: number) => void = () => {};
+  onBatchAssignSelected: (fieldName: string, value: string) => GisOperationResult =
+    (_fieldName: string, _value: string): GisOperationResult => {
+      return new GisOperationResult(false, 4, '批量赋值不可用');
+    };
   @State private filterText: string = '';
   @State private sortMode: number = 0;
-  @State private selectedRowId: string = '';
-  @State private selectedRowLayerKey: string = '';
+  @State private batchFieldName: string = '';
+  @State private batchValue: string = '';
+  @State private batchStatus: string = '';
+  @State private pageRows: GisFeatureSummary[] = [];
+  @State private pageOffset: number = 0;
+  @State private pageHasMore: boolean = false;
+  private pageLayerId: string = '';
+  private pageLoading: boolean = false;
+  private pageLoadTimer: number = -1;
 
   onTrigger(): void {
+    this.stopAttributePageLoading();
+    let layer = this.getActiveLayer();
+    if (layer !== undefined && layer.info.fields.length > 0) {
+      this.batchFieldName = layer.info.fields[0].name;
+    }
+    this.batchStatus = '';
     this.isShow = true;
+    this.loadAttributePage(true);
   }
 
   private getActiveLayer(): GisLoadedLayer | undefined {
@@ -43,6 +75,81 @@ export struct AttributeTableSheet {
 
   private getActiveLayerIndex(): number {
     return getGisService().getActiveLayerIndex();
+  }
+
+  private usesPagedRows(layer: GisLoadedLayer): boolean {
+    return layer.info.featureCount > layer.features.length;
+  }
+
+  private tableRows(layer: GisLoadedLayer): GisFeatureSummary[] {
+    if (this.usesPagedRows(layer) && this.pageLayerId === layer.info.layerId) {
+      return this.pageRows;
+    }
+    return layer.features;
+  }
+
+  private stopAttributePageLoading(): void {
+    if (this.pageLoadTimer >= 0) {
+      clearTimeout(this.pageLoadTimer);
+      this.pageLoadTimer = -1;
+    }
+  }
+
+  private scheduleNextAttributePage(): void {
+    if (!this.isShow || !this.pageHasMore || this.pageLoadTimer >= 0) {
+      return;
+    }
+    let expectedLayerId = this.pageLayerId;
+    this.pageLoadTimer = setTimeout((): void => {
+      this.pageLoadTimer = -1;
+      let layer = this.getActiveLayer();
+      if (!this.isShow || layer === undefined || layer.info.layerId !== expectedLayerId) {
+        return;
+      }
+      this.loadAttributePage(false);
+    }, ATTRIBUTE_PAGE_DELAY_MS);
+  }
+
+  private loadAttributePage(reset: boolean): void {
+    if (this.pageLoading) {
+      return;
+    }
+    let layer = this.getActiveLayer();
+    let layerIndex = this.getActiveLayerIndex();
+    if (layer === undefined || layerIndex < 0 || !this.usesPagedRows(layer)) {
+      this.pageRows = [];
+      this.pageOffset = 0;
+      this.pageHasMore = false;
+      this.pageLayerId = layer === undefined ? '' : layer.info.layerId;
+      return;
+    }
+    if (!reset && (!this.pageHasMore || this.pageLayerId !== layer.info.layerId)) {
+      return;
+    }
+    let offset = reset ? 0 : this.pageOffset;
+    this.pageLoading = true;
+    let page: GisFeaturePage | undefined = getGisService().queryLayerFeatures(layerIndex, layer.info.envelope,
+      ATTRIBUTE_PAGE_SIZE, offset);
+    this.pageLoading = false;
+    if (page === undefined) {
+      return;
+    }
+    if (reset) {
+      this.pageRows = page.features;
+      this.pageLayerId = layer.info.layerId;
+    } else {
+      let combined: GisFeatureSummary[] = [];
+      for (let i = 0; i < this.pageRows.length; i++) {
+        combined.push(this.pageRows[i]);
+      }
+      for (let i = 0; i < page.features.length; i++) {
+        combined.push(page.features[i]);
+      }
+      this.pageRows = combined;
+    }
+    this.pageOffset = offset + page.features.length;
+    this.pageHasMore = page.hasMore;
+    this.scheduleNextAttributePage();
   }
 
   private activeLayerKey(): string {
@@ -151,13 +258,80 @@ export struct AttributeTableSheet {
 
   private buildVisibleRows(layer: GisLoadedLayer): GisFeatureSummary[] {
     let rows: GisFeatureSummary[] = [];
-    for (let i = 0; i < layer.features.length; i++) {
-      let row = layer.features[i];
+    let sourceRows = this.tableRows(layer);
+    for (let i = 0; i < sourceRows.length; i++) {
+      let row = sourceRows[i];
       if (this.rowMatchesFilter(row)) {
         this.insertSorted(rows, row);
       }
     }
     return rows;
+  }
+
+  private isRowSelected(row: GisFeatureSummary): boolean {
+    if (this.selectedFeatureLayerIndex !== this.getActiveLayerIndex()) {
+      return false;
+    }
+    for (let i = 0; i < this.selectedFeatureIds.length; i++) {
+      if (this.selectedFeatureIds[i] === row.featureId) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  private activeSelectionCount(): number {
+    if (this.selectedFeatureLayerIndex !== this.getActiveLayerIndex()) {
+      return 0;
+    }
+    return this.selectedFeatureIds.length;
+  }
+
+  private activeBatchFieldName(layer: GisLoadedLayer): string {
+    if (this.batchFieldName.length > 0) {
+      for (let i = 0; i < layer.info.fields.length; i++) {
+        if (layer.info.fields[i].name === this.batchFieldName) {
+          return this.batchFieldName;
+        }
+      }
+    }
+    if (layer.info.fields.length > 0) {
+      return layer.info.fields[0].name;
+    }
+    return '';
+  }
+
+  private visibleFeatureIds(layer: GisLoadedLayer): string[] {
+    let rows = this.buildVisibleRows(layer);
+    let result: string[] = [];
+    for (let i = 0; i < rows.length; i++) {
+      result.push(rows[i].featureId);
+    }
+    return result;
+  }
+
+  private selectAllVisible(layer: GisLoadedLayer): void {
+    this.onReplaceSelection(this.visibleFeatureIds(layer), this.getActiveLayerIndex());
+  }
+
+  private clearActiveSelection(): void {
+    let emptySelection: string[] = [];
+    this.onReplaceSelection(emptySelection, this.getActiveLayerIndex());
+  }
+
+  private applyBatchAssignment(layer: GisLoadedLayer): void {
+    if (this.activeSelectionCount() === 0) {
+      this.batchStatus = '请先选择至少一个要素';
+      return;
+    }
+    let fieldName = this.activeBatchFieldName(layer);
+    if (fieldName.length === 0) {
+      this.batchStatus = '当前图层没有可编辑字段';
+      return;
+    }
+    let result = this.onBatchAssignSelected(fieldName, this.batchValue);
+    this.batchStatus = result.ok ? '批量赋值完成：' + this.activeSelectionCount().toString() + ' 个要素' :
+      '批量赋值失败：' + result.message;
   }
 
   private fieldStatsText(field: GisFieldInfo): string {
@@ -170,8 +344,9 @@ export struct AttributeTableSheet {
     let minValue = 0.0;
     let maxValue = 0.0;
     let hasNumber = false;
-    for (let i = 0; i < layer.features.length; i++) {
-      let row = layer.features[i];
+    let sourceRows = this.tableRows(layer);
+    for (let i = 0; i < sourceRows.length; i++) {
+      let row = sourceRows[i];
       for (let j = 0; j < row.attributesPreview.length; j++) {
         let attr = row.attributesPreview[j];
         if (attr.name === field.name && !attr.isNull) {
@@ -254,7 +429,7 @@ export struct AttributeTableSheet {
 
       Row() {
         this.metricText($r('app.string.gn_features'), layer.info.featureCount.toString())
-        this.metricText($r('app.string.gn_attribute_rows'), layer.features.length.toString())
+        this.metricText($r('app.string.gn_attribute_rows'), this.tableRows(layer).length.toString())
         this.metricText($r('app.string.gn_details'), layer.info.fields.length.toString() + ' 字段')
       }
 
@@ -307,6 +482,9 @@ export struct AttributeTableSheet {
     if (layer.style.rendererMode === 2) {
       return '分级渲染';
     }
+    if (layer.style.rendererMode === 3) {
+      return '表达式规则';
+    }
     return '单一符号';
   }
 
@@ -317,11 +495,14 @@ export struct AttributeTableSheet {
     if (layer.style.rendererMode === 2) {
       return 5;
     }
+    if (layer.style.rendererMode === 3) {
+      return 2;
+    }
     return 1;
   }
 
   private layerPreviewColor(layer: GisLoadedLayer): string {
-    if (layer.style.rendererMode === 1 || layer.style.rendererMode === 2) {
+    if (layer.style.rendererMode === 1 || layer.style.rendererMode === 2 || layer.style.rendererMode === 3) {
       return qgisRampColor(layer.style.colorRamp, 0, this.layerRampTotal(layer));
     }
     if (layer.info.geometryType === 1) {
@@ -337,6 +518,9 @@ export struct AttributeTableSheet {
     if (layer.style.rendererMode === 1 || layer.style.rendererMode === 2) {
       return 'QGIS 色带';
     }
+    if (layer.style.rendererMode === 3) {
+      return '表达式规则';
+    }
     if (layer.info.geometryType === 1) {
       return '点符号';
     }
@@ -347,9 +531,10 @@ export struct AttributeTableSheet {
   }
 
   private layerPreviewDetail(layer: GisLoadedLayer): string {
-    if (layer.style.rendererMode === 1 || layer.style.rendererMode === 2) {
-      let fieldName = layer.style.rendererField.length > 0 ? layer.style.rendererField : '未选择字段';
-      return this.layerRendererModeName(layer) + ' · ' + fieldName;
+    if (layer.style.rendererMode === 1 || layer.style.rendererMode === 2 || layer.style.rendererMode === 3) {
+      let fallbackText = layer.style.rendererMode === 3 ? '未填写表达式' : '未选择字段';
+      let rendererSource = layer.style.rendererField.length > 0 ? layer.style.rendererField : fallbackText;
+      return this.layerRendererModeName(layer) + ' · ' + rendererSource;
     }
     if (layer.info.geometryType === 1) {
       return '半径 ' + layer.style.pointRadius.toString() + ' px';
@@ -468,14 +653,22 @@ export struct AttributeTableSheet {
           }
           .layoutWeight(1)
           .alignItems(HorizontalAlign.Start)
+          Button(this.isRowSelected(row) ? $r('app.string.gn_attribute_unselect') :
+            $r('app.string.gn_attribute_select'), { type: ButtonType.Capsule, stateEffect: true })
+            .height(28)
+            .fontSize(12)
+            .fontColor(this.isRowSelected(row) ? $r('app.color.gn_paper') : $r('app.color.gn_blue_800'))
+            .backgroundColor(this.isRowSelected(row) ? $r('app.color.gn_blue_800') :
+              $r('app.color.gn_blue_100'))
+            .onClick(() => {
+              this.onToggleFeature(row.featureId, this.getActiveLayerIndex());
+            })
           Button($r('app.string.gn_locate_feature'), { type: ButtonType.Capsule, stateEffect: true })
             .height(28)
             .fontSize(12)
             .fontColor($r('app.color.gn_blue_800'))
             .backgroundColor($r('app.color.gn_blue_100'))
             .onClick(() => {
-              this.selectedRowId = row.featureId;
-              this.selectedRowLayerKey = this.activeLayerKey();
               this.onLocateFeature(row.featureId, this.getActiveLayerIndex());
             })
         }
@@ -487,8 +680,7 @@ export struct AttributeTableSheet {
       }
       .padding({ left: 12, right: 12 })
       .borderRadius(6)
-      .backgroundColor(this.selectedRowLayerKey === this.activeLayerKey() && this.selectedRowId === row.featureId ?
-        $r('app.color.gn_arc_selected') : $r('app.color.gn_paper'))
+      .backgroundColor(this.isRowSelected(row) ? $r('app.color.gn_arc_selected') : $r('app.color.gn_paper'))
     }
   }
 
@@ -505,6 +697,109 @@ export struct AttributeTableSheet {
       .onClick(() => {
         this.sortMode = mode;
       })
+  }
+
+  @Builder
+  batchFieldButton(field: GisFieldInfo, layer: GisLoadedLayer) {
+    Text(field.name)
+      .height(26)
+      .padding({ left: 9, right: 9 })
+      .margin({ right: 6, bottom: 6 })
+      .fontSize(12)
+      .fontColor(this.activeBatchFieldName(layer) === field.name ? $r('app.color.gn_blue_800') :
+        $r('app.color.gn_text_muted'))
+      .backgroundColor(this.activeBatchFieldName(layer) === field.name ? $r('app.color.gn_blue_100') :
+        $r('app.color.gn_pane'))
+      .borderRadius(4)
+      .onClick(() => {
+        this.batchFieldName = field.name;
+      })
+  }
+
+  @Builder
+  selectionBatchPanel(layer: GisLoadedLayer) {
+    Column({ space: 9 }) {
+      Row({ space: 8 }) {
+        Text($r('app.string.gn_attribute_selected_count'))
+          .fontSize(13)
+          .fontWeight(FontWeight.Medium)
+          .fontColor($r('app.color.gn_text_primary'))
+        Text(this.activeSelectionCount().toString())
+          .fontSize(14)
+          .fontWeight(FontWeight.Bold)
+          .fontColor($r('app.color.gn_blue_800'))
+        Blank()
+        Button($r('app.string.gn_attribute_select_loaded'), { type: ButtonType.Capsule, stateEffect: true })
+          .height(28)
+          .fontSize(11)
+          .fontColor($r('app.color.gn_blue_800'))
+          .backgroundColor($r('app.color.gn_blue_100'))
+          .onClick(() => {
+            this.selectAllVisible(layer);
+          })
+        Button($r('app.string.gn_attribute_clear_selection'), { type: ButtonType.Capsule, stateEffect: true })
+          .height(28)
+          .fontSize(11)
+          .fontColor($r('app.color.gn_text_muted'))
+          .backgroundColor($r('app.color.gn_pane'))
+          .onClick(() => {
+            this.clearActiveSelection();
+          })
+      }
+      .width('100%')
+
+      Text($r('app.string.gn_attribute_loaded_selection_hint'))
+        .width('100%')
+        .fontSize(10)
+        .fontColor($r('app.color.gn_text_muted'))
+
+      if (layer.info.fields.length > 0) {
+        Text($r('app.string.gn_attribute_batch_field'))
+          .width('100%')
+          .fontSize(11)
+          .fontColor($r('app.color.gn_text_muted'))
+        Flex({ wrap: FlexWrap.Wrap }) {
+          ForEach(layer.info.fields, (field: GisFieldInfo) => {
+            this.batchFieldButton(field, layer)
+          }, (field: GisFieldInfo) => this.activeLayerKey() + ':batch-field:' + field.name)
+        }
+        Row({ space: 8 }) {
+          TextInput({ placeholder: $r('app.string.gn_attribute_batch_value'), text: this.batchValue })
+            .height(32)
+            .layoutWeight(1)
+            .backgroundColor($r('app.color.gn_pane'))
+            .onChange((value: string) => {
+              this.batchValue = value;
+            })
+          Button($r('app.string.gn_attribute_apply_batch'), { type: ButtonType.Capsule, stateEffect: true })
+            .height(32)
+            .fontSize(12)
+            .fontColor($r('app.color.gn_paper'))
+            .backgroundColor($r('app.color.gn_blue_800'))
+            .enabled(this.activeSelectionCount() > 0)
+            .onClick(() => {
+              this.applyBatchAssignment(layer);
+            })
+        }
+        .width('100%')
+      } else {
+        Text($r('app.string.gn_attribute_no_editable_fields'))
+          .width('100%')
+          .fontSize(11)
+          .fontColor($r('app.color.gn_text_muted'))
+      }
+
+      if (this.batchStatus.length > 0) {
+        Text(this.batchStatus)
+          .width('100%')
+          .fontSize(11)
+          .fontColor($r('app.color.gn_text_muted'))
+      }
+    }
+    .padding(12)
+    .borderRadius(6)
+    .backgroundColor($r('app.color.gn_paper'))
+    .border({ width: 1, color: $r('app.color.gn_line') })
   }
 
   @Builder
@@ -526,7 +821,8 @@ export struct AttributeTableSheet {
           this.sortButton($r('app.string.gn_sort_first_field'), 2)
         }
         Blank()
-        Text(this.buildVisibleRows(layer).length.toString() + ' / ' + layer.features.length.toString())
+        Text(this.buildVisibleRows(layer).length.toString() + ' / ' + this.tableRows(layer).length.toString() +
+          ' / ' + layer.info.featureCount.toString())
           .fontSize(12)
           .fontColor($r('app.color.gn_text_muted'))
       }
@@ -551,6 +847,11 @@ export struct AttributeTableSheet {
                 .height(0)
                 .fontSize(0)
                 .opacity(0)
+              Text(this.selectionRevision.toString())
+                .width(0)
+                .height(0)
+                .fontSize(0)
+                .opacity(0)
               if (this.getActiveLayer() === undefined) {
                 Column({ space: 8 }) {
                   Text('当前没有已加载图层')
@@ -569,6 +870,7 @@ export struct AttributeTableSheet {
                   this.summaryPanel(this.getActiveLayer() as GisLoadedLayer)
                   this.fieldPanel(this.getActiveLayer() as GisLoadedLayer)
                   this.tableQueryBar(this.getActiveLayer() as GisLoadedLayer)
+                  this.selectionBatchPanel(this.getActiveLayer() as GisLoadedLayer)
                 }
                 .padding(14)
               }
@@ -591,6 +893,9 @@ export struct AttributeTableSheet {
                   this.rowItem(row)
                 }, (row: GisFeatureSummary) => this.activeLayerKey() + ':row:' + row.featureId)
               }
+              .onReachEnd(() => {
+                this.loadAttributePage(false);
+              })
               .layoutWeight(1)
               .scrollBar(BarState.Auto)
               .padding({ left: 14, right: 14 })
@@ -617,7 +922,10 @@ export struct AttributeTableSheet {
               content: {
                 label: 'modal_cancel', isEnabled: true,
                 type: IconStyleMode.SMALL,
-                action: () => { this.isShow = false; }
+                action: () => {
+                  this.stopAttributePageLoading();
+                  this.isShow = false;
+                }
               }
             }]
           }
@@ -630,14 +938,18 @@ export struct AttributeTableSheet {
   build() {
     Row().width(0).height(0)
       .bindSheet($$this.isShow, this.sheetContent(), {
-        detents: [SheetSize.LARGE],
+        width: 900,
+        height: 690,
+        detents: [690],
         preferType: SheetType.CENTER,
         dragBar: false,
         backgroundColor: Color.Transparent,
-        blurStyle: BlurStyle.Thin,
-        systemMaterial: MaterialStyle.nativeMaterial(this.materialEnabled),
+        blurStyle: BlurStyle.Regular,
         showClose: false,
-        onDisappear: (): void => { this.isShow = false; }
+        onDisappear: (): void => {
+          this.stopAttributePageLoading();
+          this.isShow = false;
+        }
       })
   }
 }

@@ -1,5 +1,5 @@
 /node_modules
-/oh_modules
+**/oh_modules
 /local.properties
 /build-profile.json5
 /.agents
@@ -10,6 +10,7 @@
 **/.idea
 **/build
 /output
+/release
 geonest_*.jpeg
 geonest_*_hilog.txt
 /entry/src/main/resources/rawfile/HarmonyOS_Sans_SC_Regular.ttf

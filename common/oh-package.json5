@@ -1,0 +1,9 @@
+{
+  "name": "@geonest/common",
+  "version": "1.0.0",
+  "description": "Shared GeoNest ArkTS contracts and platform helpers.",
+  "main": "Index.ets",
+  "author": "",
+  "license": "Apache-2.0",
+  "dependencies": {}
+}

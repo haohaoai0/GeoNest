@@ -146,6 +146,12 @@ if(GEONEST_USE_QGIS_CORE)
     file(TO_CMAKE_PATH "${GEONEST_QGIS_EFFECTIVE_PREFIX}" GEONEST_QGIS_PREFIX_NORMALIZED)
     file(TO_CMAKE_PATH "${GEONEST_QGIS_PLUGIN_PATH}" GEONEST_QGIS_PLUGIN_PATH_NORMALIZED)
     set(GEONEST_GIS_CORE_SOURCE ${GEONEST_ROOT_PATH}/native/gis_core/src/geonest_gis_core_qgis.cpp)
+    # QgsLazDecoder is intentionally a private QGIS class and its methods are
+    # hidden in libqgis_core. Compile the matching upstream implementation into
+    # our bridge so LAS/LAZ decoding is available to GeoNest.
+    set(GEONEST_POINT_CLOUD_DECODER_SOURCE
+        ${GEONEST_ROOT_PATH}/native/third_party/qgis/sources/QGIS-master/src/core/pointcloud/qgslazdecoder.cpp
+    )
 elseif(GEONEST_USE_GDAL)
     if(NOT GDAL_PREFIX)
         message(FATAL_ERROR "GEONEST_USE_GDAL=ON requires -DGDAL_PREFIX=/path/to/staged/gdal")
@@ -178,6 +184,7 @@ endif()
 
 add_library(geonestgis SHARED
     ${GEONEST_GIS_CORE_SOURCE}
+    ${GEONEST_POINT_CLOUD_DECODER_SOURCE}
     ${GEONEST_ROOT_PATH}/native/napi_bridge/src/geonest_napi_bridge.cpp
 )
 
@@ -187,6 +194,7 @@ if(GEONEST_USE_QGIS_CORE)
     target_include_directories(geonestgis PRIVATE
         "${QGIS_CORE_INCLUDE_DIR}"
         "${GEONEST_QGIS_EFFECTIVE_PREFIX}/include"
+        "${GEONEST_ROOT_PATH}/native/third_party/qgis/sources/QGIS-master/external/lazperf"
     )
     target_compile_definitions(geonestgis PRIVATE
         GEONEST_QGIS_PREFIX="${GEONEST_QGIS_PREFIX_NORMALIZED}"
@@ -277,6 +285,7 @@ if(GEONEST_USE_GDAL)
         "${GEONEST_GDAL_EFFECTIVE_PREFIX}/lib/libgeos_c.so*"
         "${GEONEST_GDAL_EFFECTIVE_PREFIX}/lib/libproj.so*"
         "${GEONEST_GDAL_EFFECTIVE_PREFIX}/lib/libsqlite3.so*"
+        "${GEONEST_GDAL_EFFECTIVE_PREFIX}/lib/libfreexl.so*"
     )
     foreach(GEONEST_GDAL_RUNTIME_LIB ${GEONEST_GDAL_RUNTIME_LIBS})
         add_custom_command(TARGET geonestgis POST_BUILD
@@ -284,5 +293,25 @@ if(GEONEST_USE_GDAL)
                 "${GEONEST_GDAL_RUNTIME_LIB}"
                 "$<TARGET_FILE_DIR:geonestgis>"
         )
+    endforeach()
+
+    set(GEONEST_GDAL_VERSIONED_LIBS
+        "${GEONEST_GDAL_EFFECTIVE_PREFIX}/lib/libkmlbase.so.1.3.0"
+        "${GEONEST_GDAL_EFFECTIVE_PREFIX}/lib/libkmldom.so.1.3.0"
+        "${GEONEST_GDAL_EFFECTIVE_PREFIX}/lib/libkmlengine.so.1.3.0"
+        "${GEONEST_GDAL_EFFECTIVE_PREFIX}/lib/libminizip.so.1.1"
+        "${GEONEST_GDAL_EFFECTIVE_PREFIX}/lib/liburiparser.so.1.0.31"
+        "${GEONEST_GDAL_EFFECTIVE_PREFIX}/lib/libexpat.so.1.10.2"
+    )
+    foreach(GEONEST_GDAL_VER_LIB ${GEONEST_GDAL_VERSIONED_LIBS})
+        if(EXISTS "${GEONEST_GDAL_VER_LIB}")
+            get_filename_component(GEONEST_VER_LIB_NAME "${GEONEST_GDAL_VER_LIB}" NAME)
+            string(REGEX MATCH "^(lib[^.]+\\.so)\\." GEONEST_SONAME "${GEONEST_VER_LIB_NAME}")
+            add_custom_command(TARGET geonestgis POST_BUILD
+                COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                    "${GEONEST_GDAL_VER_LIB}"
+                    "$<TARGET_FILE_DIR:geonestgis>/${CMAKE_MATCH_1}"
+            )
+        endif()
     endforeach()
 endif()

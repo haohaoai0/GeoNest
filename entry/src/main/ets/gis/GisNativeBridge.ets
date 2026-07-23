@@ -2,29 +2,55 @@ import {
   getCoreProfile,
   getNativeVersion,
   getProcessingAlgorithms,
+  inspectPointCloud,
+  processPointCloud,
   executeProcessingAlgorithm,
+  startProcessingTask,
+  getProcessingTaskStatus,
+  cancelProcessingTask,
+  releaseProcessingTask,
+  readQgisProject,
+  writeQgisProject,
+  extractZipArchive,
   openVectorLayer,
   openRasterLayer,
   closeLayer,
   getLayerInfo,
+  listVectorSublayers,
   queryFeatures,
+  selectFeaturesByGeometry,
   getFeature,
   bufferLayer,
   simplifyLayer,
   dissolveLayer,
   centroidLayer,
   repairLayer,
+  validateTopologyRules,
+  repairTopologyIssues,
   clipLayer,
   exportLayer,
+  exportLayerToFormat,
   defineLayerProjection,
   projectLayer,
   applyVectorStyle,
+  importQmlStyle,
+  exportQmlStyle,
   applyVectorLabeling,
   configureRasterDisplay,
+  renderMapView,
   exportMapLayout,
   describeCoordinateReferenceSystem,
   transformCoordinate,
   transformEnvelope,
+  beginEditSession,
+  commitEditSession,
+  rollbackEditSession,
+  undoEdit,
+  redoEdit,
+  isEditing,
+  hasPendingEdits,
+  canUndo,
+  canRedo,
   addFeature,
   deleteFeature,
   moveFeatureNode,
@@ -41,8 +67,10 @@ import {
   NativeLayerOpenResult,
   NativeLayerInfoResult,
   NativeFeaturePageResult,
+  NativeFeatureSelectionResult,
   NativeFeatureResult,
-  NativeGeoProcessResult
+  NativeGeoProcessResult,
+  NativeProcessingTaskStatus
 } from 'libgeonestgis.so';
 import {
   GisLayerInfo,
@@ -58,7 +86,17 @@ import {
   GisGeoProcessResult,
   GisCrsInfo,
   GisCoordinateTransformResult,
-  GisEnvelopeTransformResult
+  GisEnvelopeTransformResult,
+  GisProcessingAlgorithm,
+  GisProcessingCatalog,
+  GisPointCloudInfo,
+  GisPointCloudAttributeInfo,
+  GisProcessingTaskSnapshot,
+  GIS_PROCESSING_TASK_STATUS_UNAVAILABLE,
+  GisQgisProjectLayerRef,
+  GisQgisProjectReadResult,
+  GisSpatialSelectionResult,
+  GisVectorSublayerInfo
 } from '../model/GeoNestModels';
 import hilog from '@ohos.hilog';
 
@@ -329,6 +367,8 @@ function parseCoordinate(raw: Map<string, Object>): GisCoordinate {
   coord.y = mapGetNumber(raw, 'y');
   coord.z = mapGetNumber(raw, 'z');
   coord.hasZ = mapGetBool(raw, 'hasZ');
+  coord.m = mapGetNumber(raw, 'm');
+  coord.hasM = mapGetBool(raw, 'hasM');
   return coord;
 }
 
@@ -401,6 +441,47 @@ function parseGeoProcessResult(raw: Map<string, Object>): GisGeoProcessResult {
   result.outputPath = mapGetString(raw, 'outputPath');
   result.outputLayerName = mapGetString(raw, 'outputLayerName');
   result.featureCount = mapGetNumber(raw, 'featureCount');
+  result.executionId = mapGetString(raw, 'executionId');
+  result.elapsedMs = mapGetNumber(raw, 'elapsedMs');
+  return result;
+}
+
+function parseProcessingAlgorithm(raw: Map<string, Object>): GisProcessingAlgorithm {
+  return new GisProcessingAlgorithm(mapGetString(raw, 'id'), mapGetString(raw, 'name'),
+    mapGetString(raw, 'category'), mapGetNumber(raw, 'inputCount'), mapGetBool(raw, 'numericParameter'),
+    mapGetBool(raw, 'textParameter'));
+}
+
+function parseProcessingCatalog(raw: Map<string, Object>): GisProcessingCatalog {
+  let algorithms: GisProcessingAlgorithm[] = [];
+  let algorithmsArr = raw.get('algorithms');
+  if (algorithmsArr !== undefined && algorithmsArr !== null) {
+    let items = algorithmsArr as Array<Object>;
+    for (let i = 0; i < items.length; i++) {
+      algorithms.push(parseProcessingAlgorithm(items[i] as Map<string, Object>));
+    }
+  }
+  return new GisProcessingCatalog(mapGetString(raw, 'backend'), algorithms);
+}
+
+function parseQgisProjectLayerRef(raw: Map<string, Object>): GisQgisProjectLayerRef {
+  return new GisQgisProjectLayerRef(mapGetString(raw, 'name'), mapGetString(raw, 'sourcePath'),
+    mapGetString(raw, 'layerType'), mapGetBool(raw, 'visible'));
+}
+
+function parseQgisProjectReadResult(raw: Map<string, Object>): GisQgisProjectReadResult {
+  let layers: GisQgisProjectLayerRef[] = [];
+  let layersArr = raw.get('layers');
+  if (layersArr !== undefined && layersArr !== null) {
+    let items = layersArr as Array<Object>;
+    for (let i = 0; i < items.length; i++) {
+      layers.push(parseQgisProjectLayerRef(items[i] as Map<string, Object>));
+    }
+  }
+  let result = new GisQgisProjectReadResult(mapGetBool(raw, 'ok'), mapGetNumber(raw, 'code'),
+    mapGetString(raw, 'message'), mapGetString(raw, 'projectTitle'), mapGetString(raw, 'projectCrs'),
+    mapGetNumber(raw, 'layerCount'), layers);
+  result.loadedCount = mapGetNumber(raw, 'loadedCount');
   return result;
 }
 
@@ -418,6 +499,8 @@ function parseLayerInfo(raw: Map<string, Object>): GisLayerInfo {
   layerInfo.layerId = mapGetString(raw, 'layerId');
   layerInfo.name = mapGetString(raw, 'name');
   layerInfo.geometryType = mapGetNumber(raw, 'geometryType');
+  layerInfo.hasZ = mapGetBool(raw, 'hasZ');
+  layerInfo.hasM = mapGetBool(raw, 'hasM');
   layerInfo.featureCount = mapGetNumber(raw, 'featureCount');
   layerInfo.crs = mapGetString(raw, 'crs');
   layerInfo.crsDescription = mapGetString(raw, 'crsDescription');
@@ -538,6 +621,35 @@ function escapeProcessingJsonString(value: string): string {
   return result;
 }
 
+function buildProcessingRequestJson(algorithmId: string, inputLayerId: string,
+  overlayLayerId: string, numericValue: number, textValue: string, outputPath: string,
+  outputLayerName: string, executionId: string, environmentJson: string): string {
+  let inputHandle: number = layerIdToHandle(inputLayerId);
+  let overlayHandle: number = layerIdToHandle(overlayLayerId);
+  return '{"algorithmId":"' + escapeProcessingJsonString(algorithmId) +
+    '","inputHandle":' + inputHandle.toString() +
+    ',"overlayHandle":' + overlayHandle.toString() +
+    ',"numericValue":' + numericValue.toString() +
+    ',"textValue":"' + escapeProcessingJsonString(textValue) +
+    '","outputPath":"' + escapeProcessingJsonString(outputPath) +
+    '","outputLayerName":"' + escapeProcessingJsonString(outputLayerName) +
+    '","executionId":"' + escapeProcessingJsonString(executionId) +
+    '","environment":' + environmentJson + '}';
+}
+
+function parseNativeProcessingTaskStatus(nativeStatus: NativeProcessingTaskStatus,
+  algorithmId: string): GisProcessingTaskSnapshot {
+  let processResult: GisGeoProcessResult | null = null;
+  if (nativeStatus.resultInfo.length > 0) {
+    let raw: Object = parseJsonString(nativeStatus.resultInfo);
+    processResult = parseGeoProcessResult(raw as Map<string, Object>);
+  }
+  return new GisProcessingTaskSnapshot(nativeStatus.taskId, algorithmId, nativeStatus.state,
+    nativeStatus.progress, nativeStatus.processedCount, nativeStatus.stage, nativeStatus.message,
+    nativeStatus.errCode, nativeStatus.elapsedMs, nativeStatus.cancelRequested, nativeStatus.done,
+    processResult);
+}
+
 export function bridgeGetProcessingAlgorithms(): string {
   try {
     return getProcessingAlgorithms();
@@ -547,18 +659,55 @@ export function bridgeGetProcessingAlgorithms(): string {
   }
 }
 
+export function bridgeGetProcessingCatalog(): GisProcessingCatalog {
+  try {
+    let raw: Object = parseJsonString(getProcessingAlgorithms());
+    return parseProcessingCatalog(raw as Map<string, Object>);
+  } catch (e) {
+    hilog.error(BRIDGE_TAG, BRIDGE_DOMAIN, 'bridgeGetProcessingCatalog: EXCEPTION');
+    return new GisProcessingCatalog('none', []);
+  }
+}
+
+export function bridgeReadQgisProject(projectPath: string): GisQgisProjectReadResult {
+  try {
+    let result: NativeGeoProcessResult = readQgisProject(projectPath);
+    let raw: Object = parseJsonString(result.resultInfo);
+    return parseQgisProjectReadResult(raw as Map<string, Object>);
+  } catch (e) {
+    hilog.error(BRIDGE_TAG, BRIDGE_DOMAIN, 'bridgeReadQgisProject: EXCEPTION');
+    return new GisQgisProjectReadResult(false, 5, 'Native QGIS project read failed', '', '', 0, []);
+  }
+}
+
+export function bridgeWriteQgisProject(projectPath: string, projectName: string, projectCrs: string,
+  layerHandles: string): GisOperationResult {
+  try {
+    let result: NativeGeoProcessResult = writeQgisProject(projectPath, projectName, projectCrs, layerHandles);
+    let raw: Object = parseJsonString(result.resultInfo);
+    return parseOperationResult(raw as Map<string, Object>);
+  } catch (e) {
+    hilog.error(BRIDGE_TAG, BRIDGE_DOMAIN, 'bridgeWriteQgisProject: EXCEPTION');
+    return new GisOperationResult(false, 5, 'Native QGIS project write failed');
+  }
+}
+
+export function bridgeExtractZipArchive(zipPath: string, outputDirectory: string): GisOperationResult {
+  try {
+    let result: NativeGeoProcessResult = extractZipArchive(zipPath, outputDirectory);
+    let raw: Object = parseJsonString(result.resultInfo);
+    return parseOperationResult(raw as Map<string, Object>);
+  } catch (e) {
+    hilog.error(BRIDGE_TAG, BRIDGE_DOMAIN, 'bridgeExtractZipArchive: EXCEPTION');
+    return new GisOperationResult(false, 5, 'Native ZIP extraction failed');
+  }
+}
+
 export function bridgeExecuteProcessingAlgorithm(algorithmId: string, inputLayerId: string,
   overlayLayerId: string, numericValue: number, textValue: string, outputPath: string,
-  outputLayerName: string): GisGeoProcessResult {
-  let inputHandle: number = layerIdToHandle(inputLayerId);
-  let overlayHandle: number = layerIdToHandle(overlayLayerId);
-  let requestJson: string = '{"algorithmId":"' + escapeProcessingJsonString(algorithmId) +
-    '","inputHandle":' + inputHandle.toString() +
-    ',"overlayHandle":' + overlayHandle.toString() +
-    ',"numericValue":' + numericValue.toString() +
-    ',"textValue":"' + escapeProcessingJsonString(textValue) +
-    '","outputPath":"' + escapeProcessingJsonString(outputPath) +
-    '","outputLayerName":"' + escapeProcessingJsonString(outputLayerName) + '"}';
+  outputLayerName: string, executionId: string = '', environmentJson: string = '{}'): GisGeoProcessResult {
+  let requestJson: string = buildProcessingRequestJson(algorithmId, inputLayerId, overlayLayerId,
+    numericValue, textValue, outputPath, outputLayerName, executionId, environmentJson);
   try {
     let nativeResult: NativeGeoProcessResult = executeProcessingAlgorithm(requestJson);
     let raw: Object = parseJsonString(nativeResult.resultInfo);
@@ -567,6 +716,53 @@ export function bridgeExecuteProcessingAlgorithm(algorithmId: string, inputLayer
     hilog.error(BRIDGE_TAG, BRIDGE_DOMAIN, 'bridgeExecuteProcessingAlgorithm: EXCEPTION');
     return new GisGeoProcessResult(false, 5, 'Native processing execution failed',
       outputPath, outputLayerName, 0);
+  }
+}
+
+export function bridgeStartProcessingTask(algorithmId: string, inputLayerId: string,
+  overlayLayerId: string, numericValue: number, textValue: string, outputPath: string,
+  outputLayerName: string, executionId: string, environmentJson: string): GisProcessingTaskSnapshot {
+  let requestJson: string = buildProcessingRequestJson(algorithmId, inputLayerId, overlayLayerId,
+    numericValue, textValue, outputPath, outputLayerName, executionId, environmentJson);
+  try {
+    return parseNativeProcessingTaskStatus(startProcessingTask(requestJson), algorithmId);
+  } catch (e) {
+    hilog.error(BRIDGE_TAG, BRIDGE_DOMAIN, 'bridgeStartProcessingTask: EXCEPTION');
+    let result: GisGeoProcessResult = new GisGeoProcessResult(false, 5,
+      'Native background processing could not start', outputPath, outputLayerName, 0, executionId, 0);
+    return new GisProcessingTaskSnapshot('', algorithmId, 'failed', 0, 0, 'failed', result.message,
+      result.code, 0, false, true, result);
+  }
+}
+
+export function bridgeGetProcessingTaskStatus(taskId: string): GisProcessingTaskSnapshot {
+  try {
+    return parseNativeProcessingTaskStatus(getProcessingTaskStatus(taskId), '');
+  } catch (e) {
+    hilog.error(BRIDGE_TAG, BRIDGE_DOMAIN, 'bridgeGetProcessingTaskStatus: EXCEPTION');
+    return new GisProcessingTaskSnapshot(taskId, '', GIS_PROCESSING_TASK_STATUS_UNAVAILABLE, 0, 0,
+      GIS_PROCESSING_TASK_STATUS_UNAVAILABLE, 'Native background processing status is temporarily unavailable',
+      5, 0, false, false, null);
+  }
+}
+
+export function bridgeCancelProcessingTask(taskId: string): GisProcessingTaskSnapshot {
+  try {
+    return parseNativeProcessingTaskStatus(cancelProcessingTask(taskId), '');
+  } catch (e) {
+    hilog.error(BRIDGE_TAG, BRIDGE_DOMAIN, 'bridgeCancelProcessingTask: EXCEPTION');
+    return new GisProcessingTaskSnapshot(taskId, '', GIS_PROCESSING_TASK_STATUS_UNAVAILABLE, 0, 0,
+      GIS_PROCESSING_TASK_STATUS_UNAVAILABLE, 'Native background processing cancellation is temporarily unavailable',
+      5, 0, false, false, null);
+  }
+}
+
+export function bridgeReleaseProcessingTask(taskId: string): boolean {
+  try {
+    return releaseProcessingTask(taskId);
+  } catch (e) {
+    hilog.error(BRIDGE_TAG, BRIDGE_DOMAIN, 'bridgeReleaseProcessingTask: EXCEPTION');
+    return false;
   }
 }
 
@@ -642,6 +838,106 @@ export function bridgeGetLayerInfo(layerId: string): GisLayerInfo | undefined {
   }
 }
 
+export function bridgeListVectorSublayers(filePath: string): GisVectorSublayerInfo[] {
+  let sublayers: GisVectorSublayerInfo[] = [];
+  try {
+    let result: NativeGeoProcessResult = listVectorSublayers(filePath);
+    if (result.errCode !== 0) {
+      return sublayers;
+    }
+    let parsed: Object = parseJsonString(result.resultInfo);
+    let root = parsed as Map<string, Object>;
+    let layersValue = root.get('layers');
+    if (layersValue === undefined || layersValue === null) {
+      return sublayers;
+    }
+    let layers = layersValue as Array<Object>;
+    for (let i = 0; i < layers.length; i++) {
+      let item = layers[i] as Map<string, Object>;
+      let name: string = mapGetString(item, 'name');
+      let uri: string = mapGetString(item, 'uri');
+      if (name.length > 0 && uri.length > 0) {
+        sublayers.push(new GisVectorSublayerInfo(name, uri));
+      }
+    }
+  } catch (e) {
+    hilog.error(BRIDGE_TAG, BRIDGE_DOMAIN, 'bridgeListVectorSublayers: EXCEPTION');
+  }
+  return sublayers;
+}
+
+export function bridgeInspectPointCloud(filePath: string): GisPointCloudInfo {
+  let info: GisPointCloudInfo = new GisPointCloudInfo();
+  try {
+    let nativeResult: NativeGeoProcessResult = inspectPointCloud(filePath);
+    let parsed: Object = parseJsonString(nativeResult.resultInfo);
+    let raw: Map<string, Object> = parsed as Map<string, Object>;
+    info.ok = mapGetBool(raw, 'ok');
+    info.code = mapGetNumber(raw, 'code');
+    info.message = mapGetString(raw, 'message');
+    info.filePath = mapGetString(raw, 'filePath');
+    info.format = mapGetString(raw, 'format');
+    info.pointCount = mapGetNumber(raw, 'pointCount');
+    info.pointFormat = mapGetNumber(raw, 'pointFormat');
+    info.version = mapGetString(raw, 'version');
+    info.crs = mapGetString(raw, 'crs');
+    let boundsObject: Object | undefined = raw.get('bounds');
+    if (boundsObject !== undefined && boundsObject !== null) {
+      let bounds: Map<string, Object> = boundsObject as Map<string, Object>;
+      info.minX = mapGetNumber(bounds, 'minX');
+      info.minY = mapGetNumber(bounds, 'minY');
+      info.minZ = mapGetNumber(bounds, 'minZ');
+      info.maxX = mapGetNumber(bounds, 'maxX');
+      info.maxY = mapGetNumber(bounds, 'maxY');
+      info.maxZ = mapGetNumber(bounds, 'maxZ');
+    }
+    let scaleObject: Object | undefined = raw.get('scale');
+    if (scaleObject !== undefined && scaleObject !== null) {
+      let scale: Map<string, Object> = scaleObject as Map<string, Object>;
+      info.scaleX = mapGetNumber(scale, 'x');
+      info.scaleY = mapGetNumber(scale, 'y');
+      info.scaleZ = mapGetNumber(scale, 'z');
+    }
+    let offsetObject: Object | undefined = raw.get('offset');
+    if (offsetObject !== undefined && offsetObject !== null) {
+      let offset: Map<string, Object> = offsetObject as Map<string, Object>;
+      info.offsetX = mapGetNumber(offset, 'x');
+      info.offsetY = mapGetNumber(offset, 'y');
+      info.offsetZ = mapGetNumber(offset, 'z');
+    }
+    let attributeObject: Object | undefined = raw.get('attributes');
+    if (attributeObject !== undefined && attributeObject !== null) {
+      let attributes: Array<Object> = attributeObject as Array<Object>;
+      for (let i: number = 0; i < attributes.length; i++) {
+        let item: Map<string, Object> = attributes[i] as Map<string, Object>;
+        let attribute: GisPointCloudAttributeInfo = new GisPointCloudAttributeInfo();
+        attribute.name = mapGetString(item, 'name');
+        attribute.typeName = mapGetString(item, 'type');
+        attribute.size = mapGetNumber(item, 'size');
+        info.attributes.push(attribute);
+      }
+    }
+  } catch (e) {
+    info.ok = false;
+    info.code = 5;
+    info.message = 'Native point cloud inspection failed';
+    hilog.error(BRIDGE_TAG, BRIDGE_DOMAIN, 'bridgeInspectPointCloud: EXCEPTION');
+  }
+  return info;
+}
+
+export function bridgeProcessPointCloud(inputPath: string, operation: string, optionsText: string,
+  outputPath: string): GisGeoProcessResult {
+  try {
+    let nativeResult: NativeGeoProcessResult = processPointCloud(inputPath, operation, optionsText, outputPath);
+    let parsed: Object = parseJsonString(nativeResult.resultInfo);
+    return parseGeoProcessResult(parsed as Map<string, Object>);
+  } catch (e) {
+    hilog.error(BRIDGE_TAG, BRIDGE_DOMAIN, 'bridgeProcessPointCloud: EXCEPTION');
+    return new GisGeoProcessResult(false, 5, 'Native point cloud processing failed', outputPath, 'point_cloud', 0);
+  }
+}
+
 export function bridgeDescribeCoordinateReferenceSystem(definition: string): GisCrsInfo {
   try {
     let result: NativeGeoProcessResult = describeCoordinateReferenceSystem(definition);
@@ -679,13 +975,13 @@ export function bridgeTransformEnvelope(sourceDefinition: string, targetDefiniti
 }
 
 export function bridgeQueryFeatures(layerId: string, minX: number, minY: number, maxX: number, maxY: number,
-  limit: number): GisFeaturePage | undefined {
+  limit: number, offset: number = 0): GisFeaturePage | undefined {
   let handle: number = layerIdToHandle(layerId);
   if (handle <= 0) {
     return undefined;
   }
   try {
-    let result: NativeFeaturePageResult = queryFeatures(handle, minX, minY, maxX, maxY, limit);
+    let result: NativeFeaturePageResult = queryFeatures(handle, minX, minY, maxX, maxY, limit, offset);
     hilog.info(BRIDGE_TAG, BRIDGE_DOMAIN, 'bridgeQueryFeatures: errCode=%{public}d, pageLen=%{public}d',
       result.errCode, result.featurePage.length);
     if (result.errCode !== 0) {
@@ -708,6 +1004,37 @@ export function bridgeQueryFeatures(layerId: string, minX: number, minY: number,
   } catch (e) {
     hilog.error(BRIDGE_TAG, BRIDGE_DOMAIN, 'bridgeQueryFeatures: EXCEPTION');
     return undefined;
+  }
+}
+
+export function bridgeSelectFeaturesByGeometry(layerId: string, selectionWkt: string,
+  predicateMode: number): GisSpatialSelectionResult {
+  let handle: number = layerIdToHandle(layerId);
+  if (handle <= 0) {
+    return new GisSpatialSelectionResult(false, 3, [], 0, false, 'Invalid layer handle');
+  }
+  try {
+    let nativeResult: NativeFeatureSelectionResult = selectFeaturesByGeometry(handle, selectionWkt,
+      predicateMode, 0);
+    if (nativeResult.errCode !== 0) {
+      return new GisSpatialSelectionResult(false, nativeResult.errCode, [], 0, false,
+        'Native spatial selection failed');
+    }
+    let raw: Object = parseJsonString(nativeResult.selectionJson);
+    let resultMap: Map<string, Object> = raw as Map<string, Object>;
+    let featureIds: string[] = [];
+    let idsRaw: Object | undefined = resultMap.get('featureIds');
+    if (idsRaw !== undefined && idsRaw !== null) {
+      let ids: Array<Object> = idsRaw as Array<Object>;
+      for (let i = 0; i < ids.length; i++) {
+        featureIds.push(String(ids[i]));
+      }
+    }
+    return new GisSpatialSelectionResult(true, 0, featureIds, mapGetNumber(resultMap, 'matchedCount'),
+      mapGetBool(resultMap, 'truncated'), '空间选择完成');
+  } catch (e) {
+    hilog.error(BRIDGE_TAG, BRIDGE_DOMAIN, 'bridgeSelectFeaturesByGeometry: EXCEPTION');
+    return new GisSpatialSelectionResult(false, 5, [], 0, false, 'Native spatial selection failed');
   }
 }
 
@@ -822,6 +1149,49 @@ export function bridgeRepairLayer(layerId: string, outputPath: string,
   }
 }
 
+export function bridgeValidateTopologyRules(sourceLayerId: string, targetLayerId: string,
+  rulesText: string, dirtyExtentText: string, tolerance: number, outputPath: string,
+  outputLayerName: string): GisGeoProcessResult {
+  let sourceHandle: number = layerIdToHandle(sourceLayerId);
+  let targetHandle: number = layerIdToHandle(targetLayerId);
+  if (sourceHandle <= 0) {
+    return new GisGeoProcessResult(false, 3, 'Invalid topology source layer', outputPath, outputLayerName, 0);
+  }
+  try {
+    let nativeResult: NativeGeoProcessResult = validateTopologyRules(sourceHandle,
+      targetHandle > 0 ? targetHandle : sourceHandle, rulesText, dirtyExtentText, tolerance,
+      outputPath, outputLayerName);
+    let raw: Object = parseJsonString(nativeResult.resultInfo);
+    return parseGeoProcessResult(raw as Map<string, Object>);
+  } catch (e) {
+    hilog.error(BRIDGE_TAG, BRIDGE_DOMAIN, 'bridgeValidateTopologyRules: EXCEPTION');
+    return new GisGeoProcessResult(false, 5, 'Native topology validation failed', outputPath,
+      outputLayerName, 0);
+  }
+}
+
+export function bridgeRepairTopologyIssues(sourceLayerId: string, targetLayerId: string,
+  featureIdsText: string, strategy: string, tolerance: number, previewOnly: boolean,
+  outputPath: string, outputLayerName: string): GisGeoProcessResult {
+  let sourceHandle: number = layerIdToHandle(sourceLayerId);
+  let targetHandle: number = layerIdToHandle(targetLayerId);
+  if (sourceHandle <= 0) {
+    return new GisGeoProcessResult(false, 3, 'Invalid topology repair source layer', outputPath,
+      outputLayerName, 0);
+  }
+  try {
+    let nativeResult: NativeGeoProcessResult = repairTopologyIssues(sourceHandle,
+      targetHandle > 0 ? targetHandle : sourceHandle, featureIdsText, strategy, tolerance,
+      previewOnly, outputPath, outputLayerName);
+    let raw: Object = parseJsonString(nativeResult.resultInfo);
+    return parseGeoProcessResult(raw as Map<string, Object>);
+  } catch (e) {
+    hilog.error(BRIDGE_TAG, BRIDGE_DOMAIN, 'bridgeRepairTopologyIssues: EXCEPTION');
+    return new GisGeoProcessResult(false, 5, 'Native topology repair failed', outputPath,
+      outputLayerName, 0);
+  }
+}
+
 export function bridgeClipLayer(inputLayerId: string, clipLayerId: string, outputPath: string,
   outputLayerName: string): GisGeoProcessResult {
   let inputHandle: number = layerIdToHandle(inputLayerId);
@@ -851,6 +1221,22 @@ export function bridgeExportLayer(layerId: string, outputPath: string, outputLay
   } catch (e) {
     hilog.error(BRIDGE_TAG, BRIDGE_DOMAIN, 'bridgeExportLayer: EXCEPTION');
     return new GisGeoProcessResult(false, 5, 'Native export failed', outputPath, outputLayerName, 0);
+  }
+}
+
+export function bridgeExportLayerToFormat(layerId: string, outputPath: string, outputLayerName: string,
+  driverName: string): GisGeoProcessResult {
+  let handle: number = layerIdToHandle(layerId);
+  if (handle <= 0) {
+    return new GisGeoProcessResult(false, 3, 'Invalid layer handle', outputPath, outputLayerName, 0);
+  }
+  try {
+    let result: NativeGeoProcessResult = exportLayerToFormat(handle, outputPath, outputLayerName, driverName);
+    let raw: Object = parseJsonString(result.resultInfo);
+    return parseGeoProcessResult(raw as Map<string, Object>);
+  } catch (e) {
+    hilog.error(BRIDGE_TAG, BRIDGE_DOMAIN, 'bridgeExportLayerToFormat: EXCEPTION');
+    return new GisGeoProcessResult(false, 5, 'Native format export failed', outputPath, outputLayerName, 0);
   }
 }
 
@@ -935,14 +1321,57 @@ export function bridgeConfigureRasterDisplay(layerId: string, bandMode: number, 
   }
 }
 
+export function bridgeImportQmlStyle(layerId: string, qmlPath: string): GisOperationResult {
+  let handle: number = layerIdToHandle(layerId);
+  if (handle <= 0) {
+    return new GisOperationResult(false, 3, 'Invalid layer handle');
+  }
+  try {
+    let result: NativeGeoProcessResult = importQmlStyle(handle, qmlPath);
+    let raw: Object = parseJsonString(result.resultInfo);
+    return parseOperationResult(raw as Map<string, Object>);
+  } catch (e) {
+    hilog.error(BRIDGE_TAG, BRIDGE_DOMAIN, 'bridgeImportQmlStyle: EXCEPTION');
+    return new GisOperationResult(false, 5, 'Native QML style import failed');
+  }
+}
+
+export function bridgeExportQmlStyle(layerId: string, qmlPath: string): GisOperationResult {
+  let handle: number = layerIdToHandle(layerId);
+  if (handle <= 0) {
+    return new GisOperationResult(false, 3, 'Invalid layer handle');
+  }
+  try {
+    let result: NativeGeoProcessResult = exportQmlStyle(handle, qmlPath);
+    let raw: Object = parseJsonString(result.resultInfo);
+    return parseOperationResult(raw as Map<string, Object>);
+  } catch (e) {
+    hilog.error(BRIDGE_TAG, BRIDGE_DOMAIN, 'bridgeExportQmlStyle: EXCEPTION');
+    return new GisOperationResult(false, 5, 'Native QML style export failed');
+  }
+}
+
+export function bridgeRenderMapView(outputPath: string, minX: number, minY: number, maxX: number, maxY: number,
+  width: number, height: number, visibleLayerHandles: string, destinationCrs: string): GisGeoProcessResult {
+  try {
+    let result: NativeGeoProcessResult = renderMapView(outputPath, minX, minY, maxX, maxY, width, height,
+      visibleLayerHandles, destinationCrs);
+    let raw: Object = parseJsonString(result.resultInfo);
+    return parseGeoProcessResult(raw as Map<string, Object>);
+  } catch (e) {
+    hilog.error(BRIDGE_TAG, BRIDGE_DOMAIN, 'bridgeRenderMapView: EXCEPTION');
+    return new GisGeoProcessResult(false, 5, 'Native map view render failed', outputPath, '', 0);
+  }
+}
+
 export function bridgeExportMapLayout(title: string, outputPath: string, format: string, showLegend: boolean,
   showScaleBar: boolean, showNorthArrow: boolean, showGrid: boolean, width: number,
   height: number, legendTitle: string, scaleText: string, footerText: string, basemapMode: number,
-  basemapLabel: string, visibleLayerHandles: string): GisGeoProcessResult {
+  basemapLabel: string, basemapImagePath: string, visibleLayerHandles: string): GisGeoProcessResult {
   try {
     let result: NativeGeoProcessResult = exportMapLayout(title, outputPath, format, showLegend, showScaleBar,
       showNorthArrow, showGrid, width, height, legendTitle, scaleText, footerText, basemapMode, basemapLabel,
-      visibleLayerHandles);
+      basemapImagePath, visibleLayerHandles);
     let raw: Object = parseJsonString(result.resultInfo);
     return parseGeoProcessResult(raw as Map<string, Object>);
   } catch (e) {
@@ -957,7 +1386,8 @@ function coordinatesToText(points: GisCoordinate[]): string {
     if (i > 0) {
       text += ';';
     }
-    text += points[i].x.toString() + ',' + points[i].y.toString();
+    text += points[i].x.toString() + ',' + points[i].y.toString() + ',' + points[i].z.toString() + ',' +
+      points[i].m.toString() + ',' + (points[i].hasZ ? '1' : '0') + ',' + (points[i].hasM ? '1' : '0');
   }
   return text;
 }
@@ -965,6 +1395,123 @@ function coordinatesToText(points: GisCoordinate[]): string {
 function bridgeEditResult(result: NativeGeoProcessResult): GisOperationResult {
   let raw: Object = parseJsonString(result.resultInfo);
   return parseOperationResult(raw as Map<string, Object>);
+}
+
+export function bridgeBeginEditSession(layerId: string): GisOperationResult {
+  let handle: number = layerIdToHandle(layerId);
+  if (handle <= 0) {
+    return new GisOperationResult(false, 3, 'Invalid layer handle');
+  }
+  try {
+    return bridgeEditResult(beginEditSession(handle));
+  } catch (e) {
+    hilog.error(BRIDGE_TAG, BRIDGE_DOMAIN, 'bridgeBeginEditSession: EXCEPTION');
+    return new GisOperationResult(false, 5, 'Native begin edit session failed');
+  }
+}
+
+export function bridgeCommitEditSession(layerId: string): GisOperationResult {
+  let handle: number = layerIdToHandle(layerId);
+  if (handle <= 0) {
+    return new GisOperationResult(false, 3, 'Invalid layer handle');
+  }
+  try {
+    return bridgeEditResult(commitEditSession(handle));
+  } catch (e) {
+    hilog.error(BRIDGE_TAG, BRIDGE_DOMAIN, 'bridgeCommitEditSession: EXCEPTION');
+    return new GisOperationResult(false, 5, 'Native commit edit session failed');
+  }
+}
+
+export function bridgeRollbackEditSession(layerId: string): GisOperationResult {
+  let handle: number = layerIdToHandle(layerId);
+  if (handle <= 0) {
+    return new GisOperationResult(false, 3, 'Invalid layer handle');
+  }
+  try {
+    return bridgeEditResult(rollbackEditSession(handle));
+  } catch (e) {
+    hilog.error(BRIDGE_TAG, BRIDGE_DOMAIN, 'bridgeRollbackEditSession: EXCEPTION');
+    return new GisOperationResult(false, 5, 'Native rollback edit session failed');
+  }
+}
+
+export function bridgeUndoEdit(layerId: string): GisOperationResult {
+  let handle: number = layerIdToHandle(layerId);
+  if (handle <= 0) {
+    return new GisOperationResult(false, 3, 'Invalid layer handle');
+  }
+  try {
+    return bridgeEditResult(undoEdit(handle));
+  } catch (e) {
+    hilog.error(BRIDGE_TAG, BRIDGE_DOMAIN, 'bridgeUndoEdit: EXCEPTION');
+    return new GisOperationResult(false, 5, 'Native undo failed');
+  }
+}
+
+export function bridgeRedoEdit(layerId: string): GisOperationResult {
+  let handle: number = layerIdToHandle(layerId);
+  if (handle <= 0) {
+    return new GisOperationResult(false, 3, 'Invalid layer handle');
+  }
+  try {
+    return bridgeEditResult(redoEdit(handle));
+  } catch (e) {
+    hilog.error(BRIDGE_TAG, BRIDGE_DOMAIN, 'bridgeRedoEdit: EXCEPTION');
+    return new GisOperationResult(false, 5, 'Native redo failed');
+  }
+}
+
+export function bridgeIsEditing(layerId: string): boolean {
+  let handle: number = layerIdToHandle(layerId);
+  if (handle <= 0) {
+    return false;
+  }
+  try {
+    return isEditing(handle);
+  } catch (e) {
+    hilog.error(BRIDGE_TAG, BRIDGE_DOMAIN, 'bridgeIsEditing: EXCEPTION');
+    return false;
+  }
+}
+
+export function bridgeHasPendingEdits(layerId: string): boolean {
+  let handle: number = layerIdToHandle(layerId);
+  if (handle <= 0) {
+    return false;
+  }
+  try {
+    return hasPendingEdits(handle);
+  } catch (e) {
+    hilog.error(BRIDGE_TAG, BRIDGE_DOMAIN, 'bridgeHasPendingEdits: EXCEPTION');
+    return false;
+  }
+}
+
+export function bridgeCanUndo(layerId: string): boolean {
+  let handle: number = layerIdToHandle(layerId);
+  if (handle <= 0) {
+    return false;
+  }
+  try {
+    return canUndo(handle);
+  } catch (e) {
+    hilog.error(BRIDGE_TAG, BRIDGE_DOMAIN, 'bridgeCanUndo: EXCEPTION');
+    return false;
+  }
+}
+
+export function bridgeCanRedo(layerId: string): boolean {
+  let handle: number = layerIdToHandle(layerId);
+  if (handle <= 0) {
+    return false;
+  }
+  try {
+    return canRedo(handle);
+  } catch (e) {
+    hilog.error(BRIDGE_TAG, BRIDGE_DOMAIN, 'bridgeCanRedo: EXCEPTION');
+    return false;
+  }
 }
 
 export function bridgeAddFeature(layerId: string, geometryType: number, points: GisCoordinate[]): GisOperationResult {

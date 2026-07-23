@@ -1,7 +1,7 @@
 import { application, ConfigurationConstant } from '@kit.AbilityKit';
 import { HdsNavigation, HdsNavigationTitleMode, IconStyleMode, ScrollEffectType } from '@kit.UIDesignKit';
 import { hdsMaterial } from '@hms.hds.hdsMaterial';
-import { MaterialStyle } from '../utils/MaterialStyle';
+import { MaterialStyle } from '@geonest/common';
 import {
   APP_CACHE_STRATEGY_KEY,
   APP_FLOATING_TAB_MATERIAL_KEY,
@@ -13,6 +13,11 @@ import {
   APP_MOUSE_SCROLL_OPTIMIZATION_KEY,
   APP_OPEN_SIDE_PANES_KEY,
   APP_POINTER_SMOOTHING_KEY,
+  APP_PROCESSING_AUTO_LOAD_OUTPUT_KEY,
+  APP_PROCESSING_HISTORY_LIMIT_KEY,
+  APP_PROCESSING_KEEP_HISTORY_KEY,
+  APP_PROCESSING_OUTPUT_FOLDER_KEY,
+  APP_PROCESSING_OVERWRITE_OUTPUT_KEY,
   APP_PROGRESSIVE_LOADING_KEY,
   APP_REDUCED_MOTION_KEY,
   APP_STARTUP_ANIMATION_KEY,
@@ -25,6 +30,11 @@ import {
   DEFAULT_MOUSE_SCROLL_OPTIMIZATION,
   DEFAULT_OPEN_SIDE_PANES,
   DEFAULT_POINTER_SMOOTHING,
+  DEFAULT_PROCESSING_AUTO_LOAD_OUTPUT,
+  DEFAULT_PROCESSING_HISTORY_LIMIT,
+  DEFAULT_PROCESSING_KEEP_HISTORY,
+  DEFAULT_PROCESSING_OUTPUT_FOLDER,
+  DEFAULT_PROCESSING_OVERWRITE_OUTPUT,
   DEFAULT_PROGRESSIVE_LOADING,
   DEFAULT_REDUCED_MOTION,
   DEFAULT_STARTUP_ANIMATION_ENABLED,
@@ -52,7 +62,8 @@ const CATEGORY_WORKSPACE: number = 1;
 const CATEGORY_MAP_PERFORMANCE: number = 2;
 const CATEGORY_INPUT: number = 3;
 const CATEGORY_ACCESSIBILITY: number = 4;
-const CATEGORY_API26: number = 5;
+const CATEGORY_PROCESSING: number = 5;
+const CATEGORY_API26: number = 6;
 
 const PROFILE_THEME: number = 0;
 const PROFILE_MATERIAL: number = 1;
@@ -69,6 +80,9 @@ const SETTING_POINTER_SMOOTHING: number = 5;
 const SETTING_REDUCED_MOTION: number = 6;
 const SETTING_FLOATING_TAB_MATERIAL: number = 7;
 const SETTING_MOUSE_SCROLL_OPTIMIZATION: number = 8;
+const SETTING_PROCESSING_OVERWRITE_OUTPUT: number = 9;
+const SETTING_PROCESSING_AUTO_LOAD_OUTPUT: number = 10;
+const SETTING_PROCESSING_KEEP_HISTORY: number = 11;
 
 @Component
 export struct AppSettingsSheet {
@@ -93,9 +107,21 @@ export struct AppSettingsSheet {
     DEFAULT_FLOATING_TAB_MATERIAL;
   @StorageLink(APP_MOUSE_SCROLL_OPTIMIZATION_KEY) private mouseScrollOptimization: boolean =
     DEFAULT_MOUSE_SCROLL_OPTIMIZATION;
+  @StorageLink(APP_PROCESSING_OUTPUT_FOLDER_KEY) private processingOutputFolder: string =
+    DEFAULT_PROCESSING_OUTPUT_FOLDER;
+  @StorageLink(APP_PROCESSING_OVERWRITE_OUTPUT_KEY) private processingOverwriteOutput: boolean =
+    DEFAULT_PROCESSING_OVERWRITE_OUTPUT;
+  @StorageLink(APP_PROCESSING_AUTO_LOAD_OUTPUT_KEY) private processingAutoLoadOutput: boolean =
+    DEFAULT_PROCESSING_AUTO_LOAD_OUTPUT;
+  @StorageLink(APP_PROCESSING_KEEP_HISTORY_KEY) private processingKeepHistory: boolean =
+    DEFAULT_PROCESSING_KEEP_HISTORY;
+  @StorageLink(APP_PROCESSING_HISTORY_LIMIT_KEY) private processingHistoryLimit: number =
+    DEFAULT_PROCESSING_HISTORY_LIMIT;
+  @State private processingOutputFolderDraft: string = DEFAULT_PROCESSING_OUTPUT_FOLDER;
   private contentScroller: Scroller = new Scroller();
 
   onTrigger(): void {
+    this.processingOutputFolderDraft = this.processingOutputFolder;
     this.isShow = true;
   }
 
@@ -186,6 +212,15 @@ export struct AppSettingsSheet {
     if (settingId === SETTING_FLOATING_TAB_MATERIAL) {
       return this.floatingTabMaterial;
     }
+    if (settingId === SETTING_PROCESSING_OVERWRITE_OUTPUT) {
+      return this.processingOverwriteOutput;
+    }
+    if (settingId === SETTING_PROCESSING_AUTO_LOAD_OUTPUT) {
+      return this.processingAutoLoadOutput;
+    }
+    if (settingId === SETTING_PROCESSING_KEEP_HISTORY) {
+      return this.processingKeepHistory;
+    }
     return this.mouseScrollOptimization;
   }
 
@@ -204,6 +239,12 @@ export struct AppSettingsSheet {
       this.reducedMotion = value;
     } else if (settingId === SETTING_FLOATING_TAB_MATERIAL) {
       this.floatingTabMaterial = value;
+    } else if (settingId === SETTING_PROCESSING_OVERWRITE_OUTPUT) {
+      this.processingOverwriteOutput = value;
+    } else if (settingId === SETTING_PROCESSING_AUTO_LOAD_OUTPUT) {
+      this.processingAutoLoadOutput = value;
+    } else if (settingId === SETTING_PROCESSING_KEEP_HISTORY) {
+      this.processingKeepHistory = value;
     } else {
       this.mouseScrollOptimization = value;
     }
@@ -225,6 +266,12 @@ export struct AppSettingsSheet {
     this.reducedMotion = DEFAULT_REDUCED_MOTION;
     this.floatingTabMaterial = DEFAULT_FLOATING_TAB_MATERIAL;
     this.mouseScrollOptimization = DEFAULT_MOUSE_SCROLL_OPTIMIZATION;
+    this.processingOutputFolder = DEFAULT_PROCESSING_OUTPUT_FOLDER;
+    this.processingOutputFolderDraft = DEFAULT_PROCESSING_OUTPUT_FOLDER;
+    this.processingOverwriteOutput = DEFAULT_PROCESSING_OVERWRITE_OUTPUT;
+    this.processingAutoLoadOutput = DEFAULT_PROCESSING_AUTO_LOAD_OUTPUT;
+    this.processingKeepHistory = DEFAULT_PROCESSING_KEEP_HISTORY;
+    this.processingHistoryLimit = DEFAULT_PROCESSING_HISTORY_LIMIT;
     this.applyThemeMode(THEME_MODE_SYSTEM);
     this.persist();
   }
@@ -366,6 +413,94 @@ export struct AppSettingsSheet {
     .border({ width: { bottom: 1 }, color: $r('app.color.gn_line') })
   }
 
+  private sanitizedProcessingFolder(value: string): string {
+    let source: string = value.trim();
+    let result: string = '';
+    for (let i: number = 0; i < source.length; i++) {
+      let ch: string = source.charAt(i);
+      if (ch === '/' || ch === '\\' || ch === ':' || ch === '*' || ch === '?' || ch === '"' ||
+        ch === '<' || ch === '>' || ch === '|' || ch === '\r' || ch === '\n' || ch === '\t') {
+        result += '_';
+      } else {
+        result += ch;
+      }
+    }
+    if (result.length === 0 || result === '.' || result === '..') {
+      return DEFAULT_PROCESSING_OUTPUT_FOLDER;
+    }
+    return result;
+  }
+
+  private applyProcessingOutputFolder(): void {
+    this.processingOutputFolderDraft = this.sanitizedProcessingFolder(this.processingOutputFolderDraft);
+    this.processingOutputFolder = this.processingOutputFolderDraft;
+    this.refreshUi();
+    this.persist();
+  }
+
+  private setProcessingHistoryLimit(value: number): void {
+    this.processingHistoryLimit = value;
+    this.refreshUi();
+    this.persist();
+  }
+
+  @Builder
+  processingHistoryLimitOption(label: ResourceStr, value: number) {
+    Button(label, { type: ButtonType.Normal, stateEffect: true })
+      .layoutWeight(1)
+      .height(36)
+      .fontSize(12)
+      .fontColor(this.processingHistoryLimit === value ? Color.White : $r('app.color.gn_text_primary'))
+      .backgroundColor(this.processingHistoryLimit === value ? $r('app.color.gn_blue_800') :
+        $r('app.color.gn_paper'))
+      .borderRadius(this.itemRadius())
+      .border({
+        width: 1,
+        color: this.processingHistoryLimit === value ? $r('app.color.gn_blue_800') : $r('app.color.gn_line')
+      })
+      .onClick(() => {
+        this.setProcessingHistoryLimit(value);
+      })
+  }
+
+  @Builder
+  processingOutputWorkspaceRow() {
+    Column({ space: 8 }) {
+      Text($r('app.string.gn_settings_processing_output_folder'))
+        .fontSize(13)
+        .fontWeight(FontWeight.Medium)
+        .fontColor($r('app.color.gn_text_primary'))
+      Text($r('app.string.gn_settings_processing_output_folder_desc'))
+        .fontSize(10)
+        .fontColor($r('app.color.gn_text_muted'))
+      Row({ space: 8 }) {
+        TextInput({ text: this.processingOutputFolderDraft,
+          placeholder: $r('app.string.gn_settings_processing_output_folder_placeholder') })
+          .layoutWeight(1)
+          .height(38)
+          .fontSize(12)
+          .backgroundColor($r('app.color.gn_pane'))
+          .onChange((value: string) => {
+            this.processingOutputFolderDraft = value;
+          })
+        Button($r('app.string.gn_settings_processing_apply'), { type: ButtonType.Normal, stateEffect: true })
+          .height(38)
+          .fontSize(12)
+          .fontColor(Color.White)
+          .backgroundColor($r('app.color.gn_blue_800'))
+          .borderRadius(this.itemRadius())
+          .onClick(() => {
+            this.applyProcessingOutputFolder();
+          })
+      }
+      .width('100%')
+    }
+    .width('100%')
+    .alignItems(HorizontalAlign.Start)
+    .padding({ top: 10, bottom: 12 })
+    .border({ width: { bottom: 1 }, color: $r('app.color.gn_line') })
+  }
+
   @Builder
   appearanceContent() {
     Column() {
@@ -456,6 +591,40 @@ export struct AppSettingsSheet {
   }
 
   @Builder
+  processingContent() {
+    Column() {
+      this.sectionHeader($r('app.string.gn_settings_processing'),
+        $r('app.string.gn_settings_processing_desc'), $r('sys.symbol.wrench_arrow_counterclockwise'))
+      this.processingOutputWorkspaceRow()
+      this.switchRow($r('app.string.gn_settings_processing_overwrite'),
+        $r('app.string.gn_settings_processing_overwrite_desc'), SETTING_PROCESSING_OVERWRITE_OUTPUT)
+      this.switchRow($r('app.string.gn_settings_processing_auto_load'),
+        $r('app.string.gn_settings_processing_auto_load_desc'), SETTING_PROCESSING_AUTO_LOAD_OUTPUT)
+      this.switchRow($r('app.string.gn_settings_processing_keep_history'),
+        $r('app.string.gn_settings_processing_keep_history_desc'), SETTING_PROCESSING_KEEP_HISTORY)
+      Column({ space: 8 }) {
+        Text($r('app.string.gn_settings_processing_history_limit'))
+          .fontSize(13)
+          .fontWeight(FontWeight.Medium)
+          .fontColor($r('app.color.gn_text_primary'))
+        Text($r('app.string.gn_settings_processing_history_limit_desc'))
+          .fontSize(10)
+          .fontColor($r('app.color.gn_text_muted'))
+        Row({ space: 8 }) {
+          this.processingHistoryLimitOption($r('app.string.gn_settings_processing_history_20'), 20)
+          this.processingHistoryLimitOption($r('app.string.gn_settings_processing_history_50'), 50)
+          this.processingHistoryLimitOption($r('app.string.gn_settings_processing_history_100'), 100)
+        }
+        .width('100%')
+      }
+      .width('100%')
+      .alignItems(HorizontalAlign.Start)
+      .padding({ top: 10, bottom: 12 })
+    }
+    .width('100%')
+  }
+
+  @Builder
   api26Content() {
     Column() {
       this.sectionHeader($r('app.string.gn_settings_api26_lab'),
@@ -507,6 +676,8 @@ export struct AppSettingsSheet {
       this.inputContent()
     } else if (this.selectedCategory === CATEGORY_ACCESSIBILITY) {
       this.accessibilityContent()
+    } else if (this.selectedCategory === CATEGORY_PROCESSING) {
+      this.processingContent()
     } else {
       this.api26Content()
     }
@@ -523,8 +694,7 @@ export struct AppSettingsSheet {
         preferType: SheetType.CENTER,
         dragBar: false,
         backgroundColor: Color.Transparent,
-        blurStyle: BlurStyle.Thin,
-        systemMaterial: MaterialStyle.nativeMaterial(this.materialEnabled),
+        blurStyle: BlurStyle.Regular,
         showClose: false,
         onDisappear: (): void => {
           this.isShow = false;
@@ -555,6 +725,8 @@ export struct AppSettingsSheet {
               this.categoryItem($r('app.string.gn_settings_input'), $r('sys.symbol.hand_tap'), CATEGORY_INPUT)
               this.categoryItem($r('app.string.gn_settings_accessibility'), $r('sys.symbol.person'),
                 CATEGORY_ACCESSIBILITY)
+              this.categoryItem($r('app.string.gn_settings_processing'),
+                $r('sys.symbol.wrench_arrow_counterclockwise'), CATEGORY_PROCESSING)
               this.categoryItem($r('app.string.gn_settings_api26_lab'),
                 $r('sys.symbol.wrench_arrow_counterclockwise'), CATEGORY_API26)
               Blank()

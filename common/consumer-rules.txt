@@ -1,0 +1,1 @@
+# GeoNest common HAR consumer rules.

@@ -1,0 +1,11 @@
+{
+  "name": "@geonest/workbench",
+  "version": "1.0.0",
+  "description": "GeoNest workbench feature presentation module.",
+  "main": "Index.ets",
+  "author": "",
+  "license": "Apache-2.0",
+  "dependencies": {
+    "@geonest/common": "file:../../common"
+  }
+}

@@ -11,6 +11,8 @@
 
 namespace geonest {
 
+struct PreparedProcessingTask {};
+
 struct Vec2 { double x; double y; };
 struct Ring { std::vector<Vec2> pts; };
 struct Geom { int32_t type; std::vector<Ring> rings; std::vector<Vec2> pts; };
@@ -22,6 +24,7 @@ struct Layer {
     double minX, minY, maxX, maxY;
     std::vector<std::string> fieldNames; std::vector<std::string> fieldTypes;
     std::vector<Feat> features;
+    bool editSessionActive = false;
 };
 
 static std::mutex g_mutex;
@@ -151,6 +154,7 @@ static std::string BuildLayerJson(const Layer &L) {
     std::string j="{\"layerId\":\"L"+std::to_string(L.handle)+"\"";
     j+=",\"name\":\""+Esc(L.name)+"\"";
     j+=",\"geometryType\":"+std::to_string(L.geomType);
+    j+=",\"hasZ\":false,\"hasM\":false";
     j+=",\"featureCount\":"+std::to_string((int)L.features.size());
     j+=",\"envelope\":{\"minX\":"+std::to_string(L.minX);
     j+=",\"minY\":"+std::to_string(L.minY);
@@ -300,6 +304,19 @@ const char *GetLayerInfo(LayerHandle h, int32_t *outErrCode) {
     return Dup(BuildLayerJson(it->second));
 }
 
+const char *ListVectorSublayers(const char *filePath, int32_t *outErrCode) {
+    std::string path = filePath ? filePath : "";
+    std::string name = path;
+    size_t slash = name.find_last_of("/\\");
+    if (slash != std::string::npos) name = name.substr(slash + 1);
+    size_t dot = name.find_last_of('.');
+    if (dot != std::string::npos) name = name.substr(0, dot);
+    if(outErrCode)*outErrCode=path.empty()?GIS_ERR_INVALID_PARAM:GIS_OK;
+    if(path.empty()) return Dup("{\"ok\":false,\"layers\":[]}");
+    return Dup("{\"ok\":true,\"layers\":[{\"name\":\"" + Esc(name) +
+        "\",\"uri\":\"" + Esc(path) + "\"}]}");
+}
+
 static bool GeomHitsEnvelope(const Geom &g, double mnx, double mny, double mxx, double mxy) {
     auto chk=[&](double x,double y){return x>=mnx&&x<=mxx&&y>=mny&&y<=mxy;};
     if(g.type==GEOM_POLYGON)for(auto&r:g.rings)for(auto&pt:r.pts)if(chk(pt.x,pt.y))return true;
@@ -307,20 +324,23 @@ static bool GeomHitsEnvelope(const Geom &g, double mnx, double mny, double mxx, 
     return false;
 }
 
-const char *QueryFeatures(LayerHandle h, double mnx, double mny, double mxx, double mxy, int32_t limit, int32_t *outErrCode) {
+const char *QueryFeatures(LayerHandle h, double mnx, double mny, double mxx, double mxy, int32_t limit,
+                          int32_t offset, int32_t *outErrCode) {
     std::lock_guard<std::mutex> lk(g_mutex);
     auto it=g_layers.find(h);
     if(it==g_layers.end()){if(outErrCode)*outErrCode=GIS_ERR_LAYER_NOT_FOUND;return nullptr;}
     auto &L=it->second;
     std::string j="{\"layerId\":\"L"+std::to_string(h)+"\",\"features\":[";
-    int cnt=0; bool first=true;
+    int cnt=0; int skipped=0; bool first=true; bool hasMore=false;
     for(auto&f:L.features){
         if(GeomHitsEnvelope(f.geom,mnx,mny,mxx,mxy)){
+            if(skipped<offset){skipped++;continue;}
+            if(limit>0&&cnt>=limit){hasMore=true;break;}
             if(!first)j+=","; j+=BuildFeatJson(f); first=false;
-            if(limit>0&&++cnt>=limit)break;
+            cnt++;
         }
     }
-    j+="],\"hasMore\":false}";
+    j+=hasMore ? "],\"hasMore\":true}" : "],\"hasMore\":false}";
     if(outErrCode)*outErrCode=GIS_OK;
     return Dup(j);
 }
@@ -332,6 +352,66 @@ const char *GetFeature(LayerHandle h, int64_t fid, int32_t *outErrCode) {
     for(auto&f:it->second.features)if(f.fid==fid){if(outErrCode)*outErrCode=GIS_OK;return Dup(BuildFeatJson(f));}
     if(outErrCode)*outErrCode=GIS_ERR_FEATURE_NOT_FOUND;return nullptr;
 }
+
+static const char *EditSessionResult(bool ok, int32_t code, const std::string &message,
+                                     const Layer *layer, int32_t *outErrCode) {
+    if(outErrCode)*outErrCode=ok?GIS_OK:code;
+    size_t featureCount=layer?layer->features.size():0;
+    std::string j="{\"ok\":"+std::string(ok?"true":"false")+",\"code\":"+std::to_string(code);
+    j+=",\"message\":\""+Esc(message)+"\",\"outputPath\":\"\",\"outputLayerName\":\"\"";
+    j+=",\"featureCount\":"+std::to_string(featureCount)+"}";
+    return Dup(j);
+}
+
+const char *BeginEditSession(LayerHandle h, int32_t *outErrCode) {
+    std::lock_guard<std::mutex> lk(g_mutex);
+    auto it=g_layers.find(h);
+    if(it==g_layers.end())return EditSessionResult(false,GIS_ERR_LAYER_NOT_FOUND,"Layer not found",nullptr,outErrCode);
+    it->second.editSessionActive=true;
+    return EditSessionResult(true,GIS_OK,"Edit session started",&it->second,outErrCode);
+}
+
+const char *CommitEditSession(LayerHandle h, int32_t *outErrCode) {
+    std::lock_guard<std::mutex> lk(g_mutex);
+    auto it=g_layers.find(h);
+    if(it==g_layers.end())return EditSessionResult(false,GIS_ERR_LAYER_NOT_FOUND,"Layer not found",nullptr,outErrCode);
+    if(!it->second.editSessionActive)return EditSessionResult(false,GIS_ERR_INVALID_PARAM,"No active edit session",&it->second,outErrCode);
+    it->second.editSessionActive=false;
+    return EditSessionResult(true,GIS_OK,"Edit session committed",&it->second,outErrCode);
+}
+
+const char *RollbackEditSession(LayerHandle h, int32_t *outErrCode) {
+    std::lock_guard<std::mutex> lk(g_mutex);
+    auto it=g_layers.find(h);
+    if(it==g_layers.end())return EditSessionResult(false,GIS_ERR_LAYER_NOT_FOUND,"Layer not found",nullptr,outErrCode);
+    if(!it->second.editSessionActive)return EditSessionResult(false,GIS_ERR_INVALID_PARAM,"No active edit session",&it->second,outErrCode);
+    it->second.editSessionActive=false;
+    return EditSessionResult(true,GIS_OK,"Edit session rolled back",&it->second,outErrCode);
+}
+
+const char *UndoEdit(LayerHandle h, int32_t *outErrCode) {
+    std::lock_guard<std::mutex> lk(g_mutex);
+    auto it=g_layers.find(h);
+    if(it==g_layers.end())return EditSessionResult(false,GIS_ERR_LAYER_NOT_FOUND,"Layer not found",nullptr,outErrCode);
+    return EditSessionResult(false,GIS_ERR_NATIVE_NOT_READY,"Undo requires the QGIS edit backend",&it->second,outErrCode);
+}
+
+const char *RedoEdit(LayerHandle h, int32_t *outErrCode) {
+    std::lock_guard<std::mutex> lk(g_mutex);
+    auto it=g_layers.find(h);
+    if(it==g_layers.end())return EditSessionResult(false,GIS_ERR_LAYER_NOT_FOUND,"Layer not found",nullptr,outErrCode);
+    return EditSessionResult(false,GIS_ERR_NATIVE_NOT_READY,"Redo requires the QGIS edit backend",&it->second,outErrCode);
+}
+
+bool IsEditing(LayerHandle h) {
+    std::lock_guard<std::mutex> lk(g_mutex);
+    auto it=g_layers.find(h);
+    return it!=g_layers.end()&&it->second.editSessionActive;
+}
+
+bool HasPendingEdits(LayerHandle h) {(void)h;return false;}
+bool CanUndo(LayerHandle h) {(void)h;return false;}
+bool CanRedo(LayerHandle h) {(void)h;return false;}
 
 static const char *MockProcessResult(const char *outputPath, const char *outputLayerName, int32_t *outErrCode) {
     if(outErrCode)*outErrCode=GIS_ERR_NATIVE_NOT_READY;
@@ -367,6 +447,13 @@ const char *ExportLayer(LayerHandle h, const char *outputPath,
     return MockProcessResult(outputPath, outputLayerName, outErrCode);
 }
 
+const char *ExportLayerToFormat(LayerHandle h, const char *outputPath,
+                                const char *outputLayerName, const char *driverName,
+                                int32_t *outErrCode) {
+    (void)h; (void)driverName;
+    return MockProcessResult(outputPath, outputLayerName, outErrCode);
+}
+
 const char *DefineLayerProjection(LayerHandle h, const char *targetDefinition, const char *outputPath,
                                   const char *outputLayerName, int32_t *outErrCode) {
     (void)h; (void)targetDefinition;
@@ -377,6 +464,48 @@ const char *ProjectLayer(LayerHandle h, const char *targetDefinition, const char
                          const char *outputLayerName, int32_t *outErrCode) {
     (void)h; (void)targetDefinition;
     return MockProcessResult(outputPath, outputLayerName, outErrCode);
+}
+
+const char *GetProcessingAlgorithms() {
+    return Dup("{\"backend\":\"stub\",\"algorithms\":[]}");
+}
+
+const char *ExecuteProcessingAlgorithm(const char *requestJson, int32_t *outErrCode) {
+    (void)requestJson;
+    return MockProcessResult("", "", outErrCode);
+}
+
+PreparedProcessingTask *PrepareProcessingTask(const char *requestJson, char **outErrorMessage,
+                                               int32_t *outErrCode) {
+    (void)requestJson;
+    if (outErrorMessage) *outErrorMessage = Dup("Background Processing requires the QGIS backend");
+    if (outErrCode) *outErrCode = GIS_ERR_NATIVE_NOT_READY;
+    return nullptr;
+}
+
+const char *RunPreparedProcessingTask(PreparedProcessingTask *task,
+                                      const ProcessingCallbacks *callbacks,
+                                      int32_t *outErrCode) {
+    (void)task; (void)callbacks;
+    return MockProcessResult("", "", outErrCode);
+}
+
+void FreePreparedProcessingTask(PreparedProcessingTask *task) { delete task; }
+
+const char *ReadQgisProject(const char *projectPath, int32_t *outErrCode) {
+    return MockProcessResult(projectPath, "", outErrCode);
+}
+
+const char *WriteQgisProject(const char *projectPath, const char *projectName,
+                             const char *projectCrs, const char *layerHandles,
+                             int32_t *outErrCode) {
+    (void)projectName; (void)projectCrs; (void)layerHandles;
+    return MockProcessResult(projectPath, "", outErrCode);
+}
+
+const char *ExtractZipArchive(const char *zipPath, const char *outputDirectory, int32_t *outErrCode) {
+    (void)zipPath;
+    return MockProcessResult(outputDirectory, "", outErrCode);
 }
 
 void FreeCString(char *s){if(s)free(s);}

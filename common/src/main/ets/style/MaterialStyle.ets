@@ -1,10 +1,8 @@
 import { deviceInfo } from '@kit.BasicServicesKit';
 import { ScrollEffectType } from '@kit.UIDesignKit';
 import { hdsMaterial } from '@hms.hds.hdsMaterial';
-import { uiMaterial } from '@kit.ArkUI';
 
 const API_LEVEL_HDS: number = 23;
-const API_LEVEL_NATIVE: number = 26;
 
 class DetectionState {
   apiLevel: number = 0;
@@ -25,14 +23,7 @@ function ensureDetected(): void {
     state.apiLevel = 0;
   }
   state.isHigh = state.apiLevel >= API_LEVEL_HDS;
-  state.supportsNative = state.apiLevel >= API_LEVEL_NATIVE;
-  if (state.supportsNative) {
-    try {
-      state.supportsNative = uiMaterial.ImmersiveStyle !== undefined;
-    } catch (e) {
-      state.supportsNative = false;
-    }
-  }
+  state.supportsNative = false;
   if (state.isHigh) {
     try {
       let types: Array<hdsMaterial.MaterialType> = hdsMaterial.getSystemMaterialTypes();
@@ -162,100 +153,4 @@ export class MaterialStyle {
     return val ?? true;
   }
 
-  static nativeMaterial(materialEnabled?: boolean): uiMaterial.Material | undefined {
-    if (!MaterialStyle.shouldUseNativeMaterial(materialEnabled)) return undefined;
-    try {
-      return new uiMaterial.ImmersiveMaterial({
-        style: uiMaterial.ImmersiveStyle.REGULAR,
-        applyShadow: true
-      });
-    } catch (e) {
-      return undefined;
-    }
-  }
-
-  static nativeImmersiveMaterial(materialEnabled?: boolean): uiMaterial.Material | undefined {
-    if (!MaterialStyle.shouldUseNativeMaterial(materialEnabled)) return undefined;
-    try {
-      return new uiMaterial.ImmersiveMaterial({
-        style: uiMaterial.ImmersiveStyle.REGULAR,
-        applyShadow: true
-      });
-    } catch (e) {
-      return undefined;
-    }
-  }
-
-  static nativeInteractiveMaterial(materialEnabled?: boolean): uiMaterial.Material | undefined {
-    if (!MaterialStyle.shouldUseNativeMaterial(materialEnabled)) return undefined;
-    try {
-      return new uiMaterial.ImmersiveMaterial({
-        style: uiMaterial.ImmersiveStyle.THIN,
-        interactive: true,
-        applyShadow: true
-      });
-    } catch (e) {
-      return undefined;
-    }
-  }
-
-  static panelMaterial(materialEnabled?: boolean): uiMaterial.Material | undefined {
-    if (!MaterialStyle.shouldUseNativeMaterial(materialEnabled)) return undefined;
-    try {
-      return new uiMaterial.ImmersiveMaterial({
-        style: uiMaterial.ImmersiveStyle.REGULAR,
-        applyShadow: true
-      });
-    } catch (e) {
-      return undefined;
-    }
-  }
-
-  static cardMaterial(materialEnabled?: boolean): uiMaterial.Material | undefined {
-    if (!MaterialStyle.shouldUseNativeMaterial(materialEnabled)) return undefined;
-    try {
-      return new uiMaterial.ImmersiveMaterial({
-        style: uiMaterial.ImmersiveStyle.THIN,
-        applyShadow: true
-      });
-    } catch (e) {
-      return undefined;
-    }
-  }
-
-  static toolbarMaterial(materialEnabled?: boolean): uiMaterial.Material | undefined {
-    if (!MaterialStyle.shouldUseNativeMaterial(materialEnabled)) return undefined;
-    try {
-      return new uiMaterial.ImmersiveMaterial({
-        style: uiMaterial.ImmersiveStyle.THIN,
-        applyShadow: true
-      });
-    } catch (e) {
-      return undefined;
-    }
-  }
-
-  static statusBarMaterial(materialEnabled?: boolean): uiMaterial.Material | undefined {
-    if (!MaterialStyle.shouldUseNativeMaterial(materialEnabled)) return undefined;
-    try {
-      return new uiMaterial.ImmersiveMaterial({
-        style: uiMaterial.ImmersiveStyle.THIN,
-        applyShadow: true
-      });
-    } catch (e) {
-      return undefined;
-    }
-  }
-
-  static backstageMaterial(materialEnabled?: boolean): uiMaterial.Material | undefined {
-    if (!MaterialStyle.shouldUseNativeMaterial(materialEnabled)) return undefined;
-    try {
-      return new uiMaterial.ImmersiveMaterial({
-        style: uiMaterial.ImmersiveStyle.REGULAR,
-        applyShadow: true
-      });
-    } catch (e) {
-      return undefined;
-    }
-  }
 }

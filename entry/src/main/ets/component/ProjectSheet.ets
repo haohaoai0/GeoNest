@@ -1,8 +1,9 @@
 import { HdsNavigation, HdsNavigationTitleMode, IconStyleMode, ScrollEffectType } from '@kit.UIDesignKit';
 import { hdsMaterial } from '@hms.hds.hdsMaterial';
-import { MaterialStyle } from '../utils/MaterialStyle';
+import { MaterialStyle } from '@geonest/common';
 import { getGisService, GisLoadedLayer } from '../gis/GisService';
-import { GeoNestProjectParameters, RecentProjectRecord, GisCrsInfo } from '../model/GeoNestModels';
+import { GeoNestProjectParameters, GisCrsInfo } from '../model/GeoNestModels';
+import { RecentProjectRecord } from '@geonest/workbench';
 
 @Component
 export struct ProjectInfoSheet {
@@ -385,12 +386,13 @@ export struct ProjectInfoSheet {
   build() {
     Row().width(0).height(0)
       .bindSheet($$this.isShow, this.sheetContent(), {
-        detents: [SheetSize.LARGE],
+        width: 900,
+        height: 690,
+        detents: [690],
         preferType: SheetType.CENTER,
         dragBar: false,
         backgroundColor: Color.Transparent,
-        blurStyle: BlurStyle.Thin,
-        systemMaterial: MaterialStyle.nativeMaterial(this.materialEnabled),
+        blurStyle: BlurStyle.Regular,
         showClose: false,
         onDisappear: (): void => { this.isShow = false; }
       })
@@ -795,12 +797,13 @@ export struct NewProjectSheet {
   build() {
     Row().width(0).height(0)
       .bindSheet($$this.isShow, this.sheetContent(), {
-        detents: [SheetSize.LARGE],
+        width: 900,
+        height: 690,
+        detents: [690],
         preferType: SheetType.CENTER,
         dragBar: false,
         backgroundColor: Color.Transparent,
-        blurStyle: BlurStyle.Thin,
-        systemMaterial: MaterialStyle.nativeMaterial(this.materialEnabled),
+        blurStyle: BlurStyle.Regular,
         showClose: false,
         onDisappear: (): void => { this.isShow = false; }
       })

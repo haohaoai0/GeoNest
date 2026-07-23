@@ -5,6 +5,8 @@
   "main": "",
   "author": "",
   "license": "",
-  "dependencies": {}
+  "dependencies": {
+    "@geonest/common": "file:../common",
+    "@geonest/workbench": "file:../features/workbench"
+  }
 }
-

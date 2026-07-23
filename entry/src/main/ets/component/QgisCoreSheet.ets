@@ -1,9 +1,36 @@
 import { HdsNavigation, HdsNavigationTitleMode, IconStyleMode, ScrollEffectType } from '@kit.UIDesignKit';
 import { hdsMaterial } from '@hms.hds.hdsMaterial';
-import { MaterialStyle } from '../utils/MaterialStyle';
+import { MaterialStyle } from '@geonest/common';
 import { getGisService, GisLoadedLayer } from '../gis/GisService';
 import { GisNativeBridgeStatus, queryGisNativeBridgeStatus } from '../gis/GisNativeBridge';
 import { GisOperationResult } from '../model/GeoNestModels';
+import {
+  GIS_TOOL_MODE_CONVEX_HULL,
+  GIS_TOOL_MODE_BOUNDING_BOXES,
+  GIS_TOOL_MODE_ORIENTED_MINIMUM_BOUNDING_BOX,
+  GIS_TOOL_MODE_MULTIPART_TO_SINGLEPARTS,
+  GIS_TOOL_MODE_EXTRACT_BY_EXPRESSION,
+  GIS_TOOL_MODE_DIFFERENCE,
+  GIS_TOOL_MODE_SYMMETRICAL_DIFFERENCE,
+  GIS_TOOL_MODE_MERGE_LAYERS,
+  GIS_TOOL_MODE_MULTI_RING_BUFFER,
+  GIS_TOOL_MODE_EXTRACT_BY_LOCATION,
+  GIS_TOOL_MODE_SPATIAL_JOIN_SUMMARY,
+  GIS_TOOL_MODE_INTERSECTION,
+  GIS_TOOL_MODE_NEAREST_NEIGHBOR,
+  GIS_TOOL_MODE_VORONOI,
+  GIS_TOOL_MODE_KERNEL_DENSITY,
+  GIS_TOOL_MODE_POINT_DENSITY,
+  GIS_TOOL_MODE_LINE_DENSITY,
+  GIS_TOOL_MODE_IDW,
+  GIS_TOOL_MODE_RASTER_SLOPE,
+  GIS_TOOL_MODE_RASTER_ASPECT,
+  GIS_TOOL_MODE_RASTER_RECLASSIFY,
+  GIS_TOOL_MODE_QUALITY_CHECK,
+  GIS_TOOL_MODE_UNION,
+  GIS_TOOL_MODE_IDENTITY,
+  GIS_TOOL_MODE_UPDATE
+} from './ToolRunnerSheet';
 
 const QGIS_DIALOG_ACTION_REFRESH: number = 1;
 const QGIS_DIALOG_ACTION_ATTRIBUTE: number = 2;
@@ -34,6 +61,32 @@ const QGIS_DIALOG_ACTION_PROJECT_LAYER: number = 26;
 const QGIS_DIALOG_ACTION_SIMPLIFY: number = 27;
 const QGIS_DIALOG_ACTION_DISSOLVE: number = 28;
 const QGIS_DIALOG_ACTION_CENTROID: number = 29;
+const QGIS_DIALOG_ACTION_CONVEX_HULL: number = 30;
+const QGIS_DIALOG_ACTION_BOUNDING_BOXES: number = 31;
+const QGIS_DIALOG_ACTION_ORIENTED_MINIMUM_BOUNDING_BOX: number = 32;
+const QGIS_DIALOG_ACTION_MULTIPART_TO_SINGLEPARTS: number = 33;
+const QGIS_DIALOG_ACTION_EXTRACT_BY_EXPRESSION: number = 34;
+const QGIS_DIALOG_ACTION_DIFFERENCE: number = 35;
+const QGIS_DIALOG_ACTION_SYMMETRICAL_DIFFERENCE: number = 36;
+const QGIS_DIALOG_ACTION_MERGE_LAYERS: number = 37;
+const QGIS_DIALOG_ACTION_MULTI_RING_BUFFER: number = 38;
+const QGIS_DIALOG_ACTION_EXTRACT_BY_LOCATION: number = 39;
+const QGIS_DIALOG_ACTION_SPATIAL_JOIN_SUMMARY: number = 40;
+const QGIS_DIALOG_ACTION_INTERSECTION: number = 41;
+const QGIS_DIALOG_ACTION_NEAREST_NEIGHBOR: number = 42;
+const QGIS_DIALOG_ACTION_VORONOI: number = 43;
+const QGIS_DIALOG_ACTION_PROCESSING_BROWSER: number = 44;
+const QGIS_DIALOG_ACTION_KERNEL_DENSITY: number = 45;
+const QGIS_DIALOG_ACTION_POINT_DENSITY: number = 46;
+const QGIS_DIALOG_ACTION_LINE_DENSITY: number = 47;
+const QGIS_DIALOG_ACTION_IDW: number = 48;
+const QGIS_DIALOG_ACTION_RASTER_SLOPE: number = 49;
+const QGIS_DIALOG_ACTION_RASTER_ASPECT: number = 50;
+const QGIS_DIALOG_ACTION_RASTER_RECLASSIFY: number = 51;
+const QGIS_DIALOG_ACTION_QUALITY_CHECK: number = 52;
+const QGIS_DIALOG_ACTION_UNION: number = 53;
+const QGIS_DIALOG_ACTION_IDENTITY: number = 54;
+const QGIS_DIALOG_ACTION_UPDATE: number = 55;
 
 class DesktopGisCapability {
   key: string = '';
@@ -93,6 +146,8 @@ export struct QgisCoreSheet {
   onOpenSimplify: () => void = () => {};
   onOpenDissolve: () => void = () => {};
   onOpenCentroid: () => void = () => {};
+  onOpenProcessingTool: (toolMode: number) => void = (_toolMode: number) => {};
+  onOpenProcessingBrowser: () => void = () => {};
   @State private bridgeAvailable: boolean = false;
   @State private bridgeVersion: string = '';
   @State private bridgeProfile: string = '';
@@ -263,8 +318,8 @@ export struct QgisCoreSheet {
       $r('app.string.gn_cap_geometry_processing_desc'), $r('app.string.gn_cap_status_ready'),
       $r('app.string.gn_cmd_simplify'), QGIS_DIALOG_ACTION_SIMPLIFY, hasLayer, 1));
     result.push(new DesktopGisCapability('raster-analysis', $r('app.string.gn_cap_raster_analysis_title'),
-      $r('app.string.gn_cap_raster_analysis_desc'), $r('app.string.gn_cap_status_pending'),
-      $r('app.string.gn_cap_action_pending'), 0, false, 3));
+      $r('app.string.gn_cap_raster_analysis_desc'), $r('app.string.gn_cap_status_ready'),
+      '核密度', QGIS_DIALOG_ACTION_KERNEL_DENSITY, hasLayer, 1));
     result.push(new DesktopGisCapability('terrain-analysis', $r('app.string.gn_cap_terrain_analysis_title'),
       $r('app.string.gn_cap_terrain_analysis_desc'), $r('app.string.gn_cap_status_pending'),
       $r('app.string.gn_cap_action_pending'), 0, false, 3));
@@ -275,8 +330,8 @@ export struct QgisCoreSheet {
       $r('app.string.gn_cap_statistics_desc'), $r('app.string.gn_cap_status_partial'),
       $r('app.string.gn_workbench_attribute_table'), QGIS_DIALOG_ACTION_ATTRIBUTE, hasLayer, 2));
     result.push(new DesktopGisCapability('database', $r('app.string.gn_cap_database_title'),
-      $r('app.string.gn_cap_database_desc'), $r('app.string.gn_cap_status_pending'),
-      $r('app.string.gn_cap_action_pending'), 0, false, 3));
+      $r('app.string.gn_cap_database_desc'), $r('app.string.gn_cap_status_partial'),
+      $r('app.string.gn_cmd_export'), QGIS_DIALOG_ACTION_EXPORT, hasLayer, 2));
     result.push(new DesktopGisCapability('online-services', $r('app.string.gn_cap_online_services_title'),
       $r('app.string.gn_cap_online_services_desc'), $r('app.string.gn_cap_status_pending'),
       $r('app.string.gn_cap_action_pending'), 0, false, 3));
@@ -288,7 +343,7 @@ export struct QgisCoreSheet {
       $r('app.string.gn_cap_action_pending'), 0, false, 3));
     result.push(new DesktopGisCapability('task-processing', $r('app.string.gn_cap_task_processing_title'),
       $r('app.string.gn_cap_task_processing_desc'), $r('app.string.gn_cap_status_partial'),
-      $r('app.string.gn_qgis_core_title'), 0, false, 2));
+      $r('app.string.gn_processing_open'), QGIS_DIALOG_ACTION_PROCESSING_BROWSER, true, 2));
     result.push(new DesktopGisCapability('settings', $r('app.string.gn_cap_settings_title'),
       $r('app.string.gn_cap_settings_desc'), $r('app.string.gn_cap_status_partial'),
       $r('app.string.gn_project_info'), QGIS_DIALOG_ACTION_PROJECT_INFO, true, 2));
@@ -393,6 +448,58 @@ export struct QgisCoreSheet {
       this.onOpenDissolve();
     } else if (actionId === QGIS_DIALOG_ACTION_CENTROID) {
       this.onOpenCentroid();
+    } else if (actionId === QGIS_DIALOG_ACTION_CONVEX_HULL) {
+      this.onOpenProcessingTool(GIS_TOOL_MODE_CONVEX_HULL);
+    } else if (actionId === QGIS_DIALOG_ACTION_BOUNDING_BOXES) {
+      this.onOpenProcessingTool(GIS_TOOL_MODE_BOUNDING_BOXES);
+    } else if (actionId === QGIS_DIALOG_ACTION_ORIENTED_MINIMUM_BOUNDING_BOX) {
+      this.onOpenProcessingTool(GIS_TOOL_MODE_ORIENTED_MINIMUM_BOUNDING_BOX);
+    } else if (actionId === QGIS_DIALOG_ACTION_MULTIPART_TO_SINGLEPARTS) {
+      this.onOpenProcessingTool(GIS_TOOL_MODE_MULTIPART_TO_SINGLEPARTS);
+    } else if (actionId === QGIS_DIALOG_ACTION_EXTRACT_BY_EXPRESSION) {
+      this.onOpenProcessingTool(GIS_TOOL_MODE_EXTRACT_BY_EXPRESSION);
+    } else if (actionId === QGIS_DIALOG_ACTION_DIFFERENCE) {
+      this.onOpenProcessingTool(GIS_TOOL_MODE_DIFFERENCE);
+    } else if (actionId === QGIS_DIALOG_ACTION_SYMMETRICAL_DIFFERENCE) {
+      this.onOpenProcessingTool(GIS_TOOL_MODE_SYMMETRICAL_DIFFERENCE);
+    } else if (actionId === QGIS_DIALOG_ACTION_UNION) {
+      this.onOpenProcessingTool(GIS_TOOL_MODE_UNION);
+    } else if (actionId === QGIS_DIALOG_ACTION_IDENTITY) {
+      this.onOpenProcessingTool(GIS_TOOL_MODE_IDENTITY);
+    } else if (actionId === QGIS_DIALOG_ACTION_UPDATE) {
+      this.onOpenProcessingTool(GIS_TOOL_MODE_UPDATE);
+    } else if (actionId === QGIS_DIALOG_ACTION_MERGE_LAYERS) {
+      this.onOpenProcessingTool(GIS_TOOL_MODE_MERGE_LAYERS);
+    } else if (actionId === QGIS_DIALOG_ACTION_MULTI_RING_BUFFER) {
+      this.onOpenProcessingTool(GIS_TOOL_MODE_MULTI_RING_BUFFER);
+    } else if (actionId === QGIS_DIALOG_ACTION_EXTRACT_BY_LOCATION) {
+      this.onOpenProcessingTool(GIS_TOOL_MODE_EXTRACT_BY_LOCATION);
+    } else if (actionId === QGIS_DIALOG_ACTION_SPATIAL_JOIN_SUMMARY) {
+      this.onOpenProcessingTool(GIS_TOOL_MODE_SPATIAL_JOIN_SUMMARY);
+    } else if (actionId === QGIS_DIALOG_ACTION_INTERSECTION) {
+      this.onOpenProcessingTool(GIS_TOOL_MODE_INTERSECTION);
+    } else if (actionId === QGIS_DIALOG_ACTION_NEAREST_NEIGHBOR) {
+      this.onOpenProcessingTool(GIS_TOOL_MODE_NEAREST_NEIGHBOR);
+    } else if (actionId === QGIS_DIALOG_ACTION_VORONOI) {
+      this.onOpenProcessingTool(GIS_TOOL_MODE_VORONOI);
+    } else if (actionId === QGIS_DIALOG_ACTION_KERNEL_DENSITY) {
+      this.onOpenProcessingTool(GIS_TOOL_MODE_KERNEL_DENSITY);
+    } else if (actionId === QGIS_DIALOG_ACTION_POINT_DENSITY) {
+      this.onOpenProcessingTool(GIS_TOOL_MODE_POINT_DENSITY);
+    } else if (actionId === QGIS_DIALOG_ACTION_LINE_DENSITY) {
+      this.onOpenProcessingTool(GIS_TOOL_MODE_LINE_DENSITY);
+    } else if (actionId === QGIS_DIALOG_ACTION_IDW) {
+      this.onOpenProcessingTool(GIS_TOOL_MODE_IDW);
+    } else if (actionId === QGIS_DIALOG_ACTION_RASTER_SLOPE) {
+      this.onOpenProcessingTool(GIS_TOOL_MODE_RASTER_SLOPE);
+    } else if (actionId === QGIS_DIALOG_ACTION_RASTER_ASPECT) {
+      this.onOpenProcessingTool(GIS_TOOL_MODE_RASTER_ASPECT);
+    } else if (actionId === QGIS_DIALOG_ACTION_RASTER_RECLASSIFY) {
+      this.onOpenProcessingTool(GIS_TOOL_MODE_RASTER_RECLASSIFY);
+    } else if (actionId === QGIS_DIALOG_ACTION_QUALITY_CHECK) {
+      this.onOpenProcessingTool(GIS_TOOL_MODE_QUALITY_CHECK);
+    } else if (actionId === QGIS_DIALOG_ACTION_PROCESSING_BROWSER) {
+      this.onOpenProcessingBrowser();
     }
   }
 
@@ -528,6 +635,23 @@ export struct QgisCoreSheet {
       this.capabilityRow($r('app.string.gn_qgis_core_refresh_metadata'),
         $r('app.string.gn_qgis_core_refresh_desc'), $r('sys.symbol.arrow_clockwise'),
         $r('app.string.gn_qgis_core_refresh_metadata'), QGIS_DIALOG_ACTION_REFRESH)
+      this.capabilityRow($r('app.string.gn_processing_browser_title'), $r('app.string.gn_processing_browser_desc'),
+        $r('sys.symbol.list_bullet_square'), $r('app.string.gn_processing_open'),
+        QGIS_DIALOG_ACTION_PROCESSING_BROWSER)
+      this.capabilityRow('核密度', '按 ArcToolbox Kernel Density 生成点密度栅格',
+        $r('sys.symbol.location_up'), '核密度', QGIS_DIALOG_ACTION_KERNEL_DENSITY)
+      this.capabilityRow('点密度', '按 ArcToolbox Point Density 统计圆形邻域密度',
+        $r('sys.symbol.location_up'), '点密度', QGIS_DIALOG_ACTION_POINT_DENSITY)
+      this.capabilityRow('线密度', '按 ArcToolbox Line Density 统计邻域线段长度',
+        $r('sys.symbol.location_up'), '线密度', QGIS_DIALOG_ACTION_LINE_DENSITY)
+      this.capabilityRow('IDW 插值', '按 ArcToolbox IDW 从点数值字段生成插值栅格',
+        $r('sys.symbol.location_up'), 'IDW', QGIS_DIALOG_ACTION_IDW)
+      this.capabilityRow('坡度', '从 DEM 第一波段生成坡度栅格',
+        $r('sys.symbol.map'), '坡度', QGIS_DIALOG_ACTION_RASTER_SLOPE)
+      this.capabilityRow('坡向', '从 DEM 第一波段生成坡向栅格',
+        $r('sys.symbol.location_up'), '坡向', QGIS_DIALOG_ACTION_RASTER_ASPECT)
+      this.capabilityRow('栅格重分类', '按 min:max=value 规则重分类栅格值',
+        $r('sys.symbol.square_stack_3d'), '重分类', QGIS_DIALOG_ACTION_RASTER_RECLASSIFY)
       this.capabilityRow($r('app.string.gn_workbench_attribute_table'),
         $r('app.string.gn_qgis_core_attribute_desc'), $r('sys.symbol.doc_text'),
         $r('app.string.gn_workbench_attribute_table'), QGIS_DIALOG_ACTION_ATTRIBUTE)
@@ -540,6 +664,8 @@ export struct QgisCoreSheet {
         $r('sys.symbol.circle_grid_2x2'), $r('app.string.gn_cmd_buffer'), QGIS_DIALOG_ACTION_BUFFER)
       this.capabilityRow($r('app.string.gn_cmd_repair'), $r('app.string.gn_qgis_core_repair_desc'),
         $r('sys.symbol.wrench_arrow_counterclockwise'), $r('app.string.gn_cmd_repair'), QGIS_DIALOG_ACTION_REPAIR)
+      this.capabilityRow($r('app.string.gn_cmd_quality_check'), $r('app.string.gn_tool_quality_check_desc'),
+        $r('sys.symbol.list_checkmark'), $r('app.string.gn_cmd_quality_check'), QGIS_DIALOG_ACTION_QUALITY_CHECK)
       this.capabilityRow($r('app.string.gn_cmd_export'), $r('app.string.gn_qgis_core_export_desc'),
         $r('sys.symbol.download'), $r('app.string.gn_cmd_export'), QGIS_DIALOG_ACTION_EXPORT)
       this.capabilityRow($r('app.string.gn_cmd_define_projection'),
@@ -555,6 +681,49 @@ export struct QgisCoreSheet {
         $r('sys.symbol.square_and_square'), $r('app.string.gn_cmd_dissolve'), QGIS_DIALOG_ACTION_DISSOLVE)
       this.capabilityRow($r('app.string.gn_cmd_centroid'), $r('app.string.gn_workbench_centroid_desc'),
         $r('sys.symbol.location_up'), $r('app.string.gn_cmd_centroid'), QGIS_DIALOG_ACTION_CENTROID)
+      this.capabilityRow($r('app.string.gn_cmd_convex_hull'), $r('app.string.gn_workbench_convex_hull_desc'),
+        $r('sys.symbol.layer'), $r('app.string.gn_cmd_convex_hull'), QGIS_DIALOG_ACTION_CONVEX_HULL)
+      this.capabilityRow($r('app.string.gn_cmd_bounding_boxes'),
+        $r('app.string.gn_workbench_bounding_boxes_desc'), $r('sys.symbol.layer'),
+        $r('app.string.gn_cmd_bounding_boxes'), QGIS_DIALOG_ACTION_BOUNDING_BOXES)
+      this.capabilityRow($r('app.string.gn_cmd_oriented_minimum_bounding_box'),
+        $r('app.string.gn_workbench_oriented_minimum_bounding_box_desc'), $r('sys.symbol.layer'),
+        $r('app.string.gn_cmd_oriented_minimum_bounding_box'), QGIS_DIALOG_ACTION_ORIENTED_MINIMUM_BOUNDING_BOX)
+      this.capabilityRow($r('app.string.gn_cmd_multipart_to_singleparts'),
+        $r('app.string.gn_workbench_multipart_to_singleparts_desc'), $r('sys.symbol.square_stack_3d'),
+        $r('app.string.gn_cmd_multipart_to_singleparts'), QGIS_DIALOG_ACTION_MULTIPART_TO_SINGLEPARTS)
+      this.capabilityRow($r('app.string.gn_cmd_extract_by_expression'),
+        $r('app.string.gn_workbench_extract_by_expression_desc'), $r('sys.symbol.funnel'),
+        $r('app.string.gn_cmd_extract_by_expression'), QGIS_DIALOG_ACTION_EXTRACT_BY_EXPRESSION)
+      this.capabilityRow($r('app.string.gn_cmd_difference'), $r('app.string.gn_workbench_difference_desc'),
+        $r('sys.symbol.square_and_cut'), $r('app.string.gn_cmd_difference'), QGIS_DIALOG_ACTION_DIFFERENCE)
+      this.capabilityRow($r('app.string.gn_cmd_symmetrical_difference'),
+        $r('app.string.gn_workbench_symmetrical_difference_desc'), $r('sys.symbol.square_and_square'),
+        $r('app.string.gn_cmd_symmetrical_difference'), QGIS_DIALOG_ACTION_SYMMETRICAL_DIFFERENCE)
+      this.capabilityRow($r('app.string.gn_cmd_union'), $r('app.string.gn_workbench_union_desc'),
+        $r('sys.symbol.square_and_square'), $r('app.string.gn_cmd_union'), QGIS_DIALOG_ACTION_UNION)
+      this.capabilityRow($r('app.string.gn_cmd_identity'), $r('app.string.gn_workbench_identity_desc'),
+        $r('sys.symbol.square_and_square'), $r('app.string.gn_cmd_identity'), QGIS_DIALOG_ACTION_IDENTITY)
+      this.capabilityRow($r('app.string.gn_cmd_update_overlay'), $r('app.string.gn_workbench_update_overlay_desc'),
+        $r('sys.symbol.square_and_square'), $r('app.string.gn_cmd_update_overlay'), QGIS_DIALOG_ACTION_UPDATE)
+      this.capabilityRow($r('app.string.gn_cmd_merge_layers'), $r('app.string.gn_workbench_merge_layers_desc'),
+        $r('sys.symbol.plus_square_on_square'), $r('app.string.gn_cmd_merge_layers'), QGIS_DIALOG_ACTION_MERGE_LAYERS)
+      this.capabilityRow($r('app.string.gn_cmd_multi_ring_buffer'),
+        $r('app.string.gn_workbench_multi_ring_buffer_desc'), $r('sys.symbol.circle_grid_2x2'),
+        $r('app.string.gn_cmd_multi_ring_buffer'), QGIS_DIALOG_ACTION_MULTI_RING_BUFFER)
+      this.capabilityRow($r('app.string.gn_cmd_extract_by_location'),
+        $r('app.string.gn_workbench_extract_by_location_desc'), $r('sys.symbol.location_up'),
+        $r('app.string.gn_cmd_extract_by_location'), QGIS_DIALOG_ACTION_EXTRACT_BY_LOCATION)
+      this.capabilityRow($r('app.string.gn_cmd_spatial_join_summary'),
+        $r('app.string.gn_workbench_spatial_join_summary_desc'), $r('sys.symbol.plus_square_on_square'),
+        $r('app.string.gn_cmd_spatial_join_summary'), QGIS_DIALOG_ACTION_SPATIAL_JOIN_SUMMARY)
+      this.capabilityRow($r('app.string.gn_cmd_intersection'), $r('app.string.gn_workbench_intersection_desc'),
+        $r('sys.symbol.square_and_square'), $r('app.string.gn_cmd_intersection'), QGIS_DIALOG_ACTION_INTERSECTION)
+      this.capabilityRow($r('app.string.gn_cmd_nearest_neighbor'),
+        $r('app.string.gn_workbench_nearest_neighbor_desc'), $r('sys.symbol.location_up'),
+        $r('app.string.gn_cmd_nearest_neighbor'), QGIS_DIALOG_ACTION_NEAREST_NEIGHBOR)
+      this.capabilityRow($r('app.string.gn_cmd_voronoi'), $r('app.string.gn_workbench_voronoi_desc'),
+        $r('sys.symbol.circle_grid_2x2'), $r('app.string.gn_cmd_voronoi'), QGIS_DIALOG_ACTION_VORONOI)
     }
     .borderRadius(6)
     .clip(true)
@@ -714,12 +883,13 @@ export struct QgisCoreSheet {
   build() {
     Row().width(0).height(0)
       .bindSheet($$this.isShow, this.sheetContent(), {
-        detents: [SheetSize.LARGE],
+        width: 900,
+        height: 690,
+        detents: [690],
         preferType: SheetType.CENTER,
         dragBar: false,
         backgroundColor: Color.Transparent,
-        blurStyle: BlurStyle.Thin,
-        systemMaterial: MaterialStyle.nativeMaterial(this.materialEnabled),
+        blurStyle: BlurStyle.Regular,
         showClose: false,
         onDisappear: (): void => { this.isShow = false; }
       })

@@ -17,6 +17,11 @@ export const APP_POINTER_SMOOTHING_KEY: string = 'gnPointerSmoothing';
 export const APP_REDUCED_MOTION_KEY: string = 'gnReducedMotion';
 export const APP_FLOATING_TAB_MATERIAL_KEY: string = 'gnFloatingTabMaterial';
 export const APP_MOUSE_SCROLL_OPTIMIZATION_KEY: string = 'gnMouseScrollOptimization';
+export const APP_PROCESSING_OUTPUT_FOLDER_KEY: string = 'gnProcessingOutputFolder';
+export const APP_PROCESSING_OVERWRITE_OUTPUT_KEY: string = 'gnProcessingOverwriteOutput';
+export const APP_PROCESSING_AUTO_LOAD_OUTPUT_KEY: string = 'gnProcessingAutoLoadOutput';
+export const APP_PROCESSING_KEEP_HISTORY_KEY: string = 'gnProcessingKeepHistory';
+export const APP_PROCESSING_HISTORY_LIMIT_KEY: string = 'gnProcessingHistoryLimit';
 
 export const THEME_MODE_SYSTEM: number = 0;
 export const THEME_MODE_LIGHT: number = 1;
@@ -50,13 +55,34 @@ export const DEFAULT_POINTER_SMOOTHING: boolean = true;
 export const DEFAULT_REDUCED_MOTION: boolean = false;
 export const DEFAULT_FLOATING_TAB_MATERIAL: boolean = true;
 export const DEFAULT_MOUSE_SCROLL_OPTIMIZATION: boolean = true;
+export const DEFAULT_PROCESSING_OUTPUT_FOLDER: string = 'geonest_outputs';
+export const DEFAULT_PROCESSING_OVERWRITE_OUTPUT: boolean = true;
+export const DEFAULT_PROCESSING_AUTO_LOAD_OUTPUT: boolean = true;
+export const DEFAULT_PROCESSING_KEEP_HISTORY: boolean = true;
+export const DEFAULT_PROCESSING_HISTORY_LIMIT: number = 50;
 
 function readBool(prefs: preferences.Preferences, key: string, def: boolean): boolean {
-  return prefs.getSync(key, def) as boolean;
+  try {
+    return prefs.getSync(key, def) as boolean;
+  } catch (_error) {
+    return def;
+  }
 }
 
 function readNum(prefs: preferences.Preferences, key: string, def: number): number {
-  return prefs.getSync(key, def) as number;
+  try {
+    return prefs.getSync(key, def) as number;
+  } catch (_error) {
+    return def;
+  }
+}
+
+function readString(prefs: preferences.Preferences, key: string, def: string): string {
+  try {
+    return prefs.getSync(key, def) as string;
+  } catch (_error) {
+    return def;
+  }
 }
 
 export function initPreferences(context: common.UIAbilityContext): void {
@@ -76,6 +102,16 @@ export function initPreferences(context: common.UIAbilityContext): void {
     AppStorage.setOrCreate(APP_REDUCED_MOTION_KEY, readBool(prefs, APP_REDUCED_MOTION_KEY, DEFAULT_REDUCED_MOTION));
     AppStorage.setOrCreate(APP_FLOATING_TAB_MATERIAL_KEY, readBool(prefs, APP_FLOATING_TAB_MATERIAL_KEY, DEFAULT_FLOATING_TAB_MATERIAL));
     AppStorage.setOrCreate(APP_MOUSE_SCROLL_OPTIMIZATION_KEY, readBool(prefs, APP_MOUSE_SCROLL_OPTIMIZATION_KEY, DEFAULT_MOUSE_SCROLL_OPTIMIZATION));
+    AppStorage.setOrCreate(APP_PROCESSING_OUTPUT_FOLDER_KEY,
+      readString(prefs, APP_PROCESSING_OUTPUT_FOLDER_KEY, DEFAULT_PROCESSING_OUTPUT_FOLDER));
+    AppStorage.setOrCreate(APP_PROCESSING_OVERWRITE_OUTPUT_KEY,
+      readBool(prefs, APP_PROCESSING_OVERWRITE_OUTPUT_KEY, DEFAULT_PROCESSING_OVERWRITE_OUTPUT));
+    AppStorage.setOrCreate(APP_PROCESSING_AUTO_LOAD_OUTPUT_KEY,
+      readBool(prefs, APP_PROCESSING_AUTO_LOAD_OUTPUT_KEY, DEFAULT_PROCESSING_AUTO_LOAD_OUTPUT));
+    AppStorage.setOrCreate(APP_PROCESSING_KEEP_HISTORY_KEY,
+      readBool(prefs, APP_PROCESSING_KEEP_HISTORY_KEY, DEFAULT_PROCESSING_KEEP_HISTORY));
+    AppStorage.setOrCreate(APP_PROCESSING_HISTORY_LIMIT_KEY,
+      readNum(prefs, APP_PROCESSING_HISTORY_LIMIT_KEY, DEFAULT_PROCESSING_HISTORY_LIMIT));
   } catch (e) {
     AppStorage.setOrCreate(APP_THEME_MODE_KEY, THEME_MODE_SYSTEM);
     AppStorage.setOrCreate(APP_MATERIAL_QUALITY_KEY, MATERIAL_QUALITY_BALANCED);
@@ -91,6 +127,11 @@ export function initPreferences(context: common.UIAbilityContext): void {
     AppStorage.setOrCreate(APP_REDUCED_MOTION_KEY, DEFAULT_REDUCED_MOTION);
     AppStorage.setOrCreate(APP_FLOATING_TAB_MATERIAL_KEY, DEFAULT_FLOATING_TAB_MATERIAL);
     AppStorage.setOrCreate(APP_MOUSE_SCROLL_OPTIMIZATION_KEY, DEFAULT_MOUSE_SCROLL_OPTIMIZATION);
+    AppStorage.setOrCreate(APP_PROCESSING_OUTPUT_FOLDER_KEY, DEFAULT_PROCESSING_OUTPUT_FOLDER);
+    AppStorage.setOrCreate(APP_PROCESSING_OVERWRITE_OUTPUT_KEY, DEFAULT_PROCESSING_OVERWRITE_OUTPUT);
+    AppStorage.setOrCreate(APP_PROCESSING_AUTO_LOAD_OUTPUT_KEY, DEFAULT_PROCESSING_AUTO_LOAD_OUTPUT);
+    AppStorage.setOrCreate(APP_PROCESSING_KEEP_HISTORY_KEY, DEFAULT_PROCESSING_KEEP_HISTORY);
+    AppStorage.setOrCreate(APP_PROCESSING_HISTORY_LIMIT_KEY, DEFAULT_PROCESSING_HISTORY_LIMIT);
   }
 }
 
@@ -111,6 +152,16 @@ export function savePreferences(context: common.UIAbilityContext): void {
     prefs.putSync(APP_REDUCED_MOTION_KEY, AppStorage.get<boolean>(APP_REDUCED_MOTION_KEY) ?? DEFAULT_REDUCED_MOTION);
     prefs.putSync(APP_FLOATING_TAB_MATERIAL_KEY, AppStorage.get<boolean>(APP_FLOATING_TAB_MATERIAL_KEY) ?? DEFAULT_FLOATING_TAB_MATERIAL);
     prefs.putSync(APP_MOUSE_SCROLL_OPTIMIZATION_KEY, AppStorage.get<boolean>(APP_MOUSE_SCROLL_OPTIMIZATION_KEY) ?? DEFAULT_MOUSE_SCROLL_OPTIMIZATION);
+    prefs.putSync(APP_PROCESSING_OUTPUT_FOLDER_KEY,
+      AppStorage.get<string>(APP_PROCESSING_OUTPUT_FOLDER_KEY) ?? DEFAULT_PROCESSING_OUTPUT_FOLDER);
+    prefs.putSync(APP_PROCESSING_OVERWRITE_OUTPUT_KEY,
+      AppStorage.get<boolean>(APP_PROCESSING_OVERWRITE_OUTPUT_KEY) ?? DEFAULT_PROCESSING_OVERWRITE_OUTPUT);
+    prefs.putSync(APP_PROCESSING_AUTO_LOAD_OUTPUT_KEY,
+      AppStorage.get<boolean>(APP_PROCESSING_AUTO_LOAD_OUTPUT_KEY) ?? DEFAULT_PROCESSING_AUTO_LOAD_OUTPUT);
+    prefs.putSync(APP_PROCESSING_KEEP_HISTORY_KEY,
+      AppStorage.get<boolean>(APP_PROCESSING_KEEP_HISTORY_KEY) ?? DEFAULT_PROCESSING_KEEP_HISTORY);
+    prefs.putSync(APP_PROCESSING_HISTORY_LIMIT_KEY,
+      AppStorage.get<number>(APP_PROCESSING_HISTORY_LIMIT_KEY) ?? DEFAULT_PROCESSING_HISTORY_LIMIT);
     prefs.flush();
   } catch (e) {
     // silent fail

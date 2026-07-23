@@ -25,14 +25,31 @@
       user-select: none;
       -webkit-user-drag: none;
     }
+
+    #attribution {
+      position: absolute;
+      right: 6px;
+      bottom: 5px;
+      z-index: 10;
+      max-width: calc(100% - 12px);
+      padding: 2px 5px;
+      border-radius: 3px;
+      background: rgba(255, 255, 255, 0.88);
+      color: #34423b;
+      font: 10px/14px sans-serif;
+      text-align: right;
+      pointer-events: none;
+    }
   </style>
 </head>
 <body>
   <div id="map"></div>
+  <div id="attribution">© OpenStreetMap contributors · © CARTO</div>
   <script>
     (function () {
       var tileSize = 256;
       var mapElement = document.getElementById('map');
+      var attributionElement = document.getElementById('attribution');
       var lastLongitude = 112.55;
       var lastLatitude = 37.87;
       var lastZoom = 6;
@@ -42,6 +59,13 @@
         osm: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
         topo: 'https://tile.opentopomap.org/{z}/{x}/{y}.png',
         voyager: 'https://basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png'
+      };
+
+      var attributions = {
+        positron: '© OpenStreetMap contributors · © CARTO',
+        osm: '© OpenStreetMap contributors',
+        topo: '© OpenStreetMap contributors · SRTM · map style © OpenTopoMap (CC-BY-SA)',
+        voyager: '© OpenStreetMap contributors · © CARTO'
       };
 
       function clamp(value, min, max) {
@@ -91,6 +115,7 @@
 
         clearTiles();
         mapElement.className = provider === 'voyager' ? 'imagery' : '';
+        attributionElement.textContent = attributions[provider] || attributions.positron;
         for (var y = startY; y <= endY; y++) {
           if (y < 0 || y >= count) {
             continue;

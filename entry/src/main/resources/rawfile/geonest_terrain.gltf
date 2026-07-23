@@ -1,0 +1,37 @@
+{
+  "asset": { "version": "2.0", "generator": "GeoNest ArkGraphics 3D" },
+  "scene": 0,
+  "scenes": [{ "nodes": [0, 1] }],
+  "nodes": [
+    { "name": "GeoNestTerrain", "mesh": 0 },
+    { "name": "GeoNestCamera", "camera": 0, "translation": [0, 12, 20], "rotation": [-0.258819, 0, 0, 0.965926] }
+  ],
+  "cameras": [{ "type": "perspective", "perspective": { "yfov": 0.785398, "znear": 0.1, "zfar": 1000 } }],
+  "meshes": [{
+    "name": "TerrainMesh",
+    "primitives": [{ "attributes": { "POSITION": 0, "NORMAL": 1 }, "indices": 2, "material": 0 }]
+  }],
+  "materials": [{
+    "name": "TerrainMaterial",
+    "pbrMetallicRoughness": {
+      "baseColorFactor": [0.16, 0.52, 0.30, 1.0],
+      "metallicFactor": 0.0,
+      "roughnessFactor": 0.88
+    },
+    "doubleSided": true
+  }],
+  "buffers": [{
+    "byteLength": 264,
+    "uri": "data:application/octet-stream;base64,AAAgwQAAAAAAACDBAAAAAAAAAEAAACDBAAAgQQAAAAAAACDBAAAgwQAAgD8AAAAAAAAAAAAAoEAAAAAAAAAgQQAAgD8AAAAAAAAgwQAAAAAAACBBAAAAAAAAAEAAACBBAAAgQQAAAAAAACBBAAAAAAAAgD8AAAAAAAAAAAAAgD8AAAAAAAAAAAAAgD8AAAAAAAAAAAAAgD8AAAAAAAAAAAAAgD8AAAAAAAAAAAAAgD8AAAAAAAAAAAAAgD8AAAAAAAAAAAAAgD8AAAAAAAAAAAAAgD8AAAAAAAADAAEAAQADAAQAAQAEAAIAAgAEAAUAAwAGAAQABAAGAAcABAAHAAUABQAHAAgA"
+  }],
+  "bufferViews": [
+    { "buffer": 0, "byteOffset": 0, "byteLength": 108, "target": 34962 },
+    { "buffer": 0, "byteOffset": 108, "byteLength": 108, "target": 34962 },
+    { "buffer": 0, "byteOffset": 216, "byteLength": 48, "target": 34963 }
+  ],
+  "accessors": [
+    { "bufferView": 0, "componentType": 5126, "count": 9, "type": "VEC3", "min": [-10, 0, -10], "max": [10, 5, 10] },
+    { "bufferView": 1, "componentType": 5126, "count": 9, "type": "VEC3" },
+    { "bufferView": 2, "componentType": 5123, "count": 24, "type": "SCALAR" }
+  ]
+}

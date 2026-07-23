@@ -1,26 +1,223 @@
 import { HdsNavigation, HdsNavigationTitleMode, IconStyleMode, ScrollEffectType } from '@kit.UIDesignKit';
 import { hdsMaterial } from '@hms.hds.hdsMaterial';
-import { MaterialStyle } from '../utils/MaterialStyle';
+import { MaterialStyle } from '@geonest/common';
 import { getGisService, GisLoadedLayer } from '../gis/GisService';
 import { print } from '@kit.BasicServicesKit';
+import { staticMap } from '@kit.MapKit';
+import { image } from '@kit.ImageKit';
 import { fileUri, picker } from '@kit.CoreFileKit';
 import { photoAccessHelper } from '@kit.MediaLibraryKit';
 import fs from '@ohos.file.fs';
 import { common } from '@kit.AbilityKit';
-import { GisGeoProcessResult } from '../model/GeoNestModels';
+import { GisEnvelope, GisEnvelopeTransformResult, GisGeoProcessResult } from '../model/GeoNestModels';
 import {
   BASEMAP_HARMONY_IMAGERY,
+  BASEMAP_HARMONY_STANDARD,
   BASEMAP_HARMONY_TERRAIN,
   BASEMAP_IMAGERY,
+  BASEMAP_ONLINE_STANDARD,
   BASEMAP_TERRAIN,
   BASEMAP_VECTOR
-} from './GisMapCanvas';
+} from '@geonest/common';
 
 const MAP_EXPORT_BASE_NAME: string = 'GeoNestMap';
 const MAP_EXPORT_PNG_SUFFIX: string = 'PNG 图像|.png';
 const MAP_EXPORT_PDF_SUFFIX: string = 'PDF 文档|.pdf';
 const MAP_EXPORT_SVG_SUFFIX: string = 'SVG 矢量图|.svg';
 const MAP_PRINT_BASE_NAME: string = 'GeoNestPrint';
+const WEB_MERCATOR_RADIUS_METERS: number = 6378137.0;
+const WEB_MERCATOR_ORIGIN_SHIFT: number = 20037508.342789244;
+const WEB_MERCATOR_INITIAL_RESOLUTION: number = 156543.03392804097;
+const WEB_MERCATOR_MAX_LATITUDE: number = 85.0511287798066;
+const MAPKIT_STATIC_BASEMAP_ATTRIBUTION: string = '真实花瓣静态底图 · © Huawei Map Kit / Petal Maps';
+
+class StaticBasemapExportContext {
+  basemapMode: number = BASEMAP_VECTOR;
+  basemapLabel: string = '';
+  basemapImagePath: string = '';
+
+  constructor(basemapMode: number, basemapLabel: string, basemapImagePath: string) {
+    this.basemapMode = basemapMode;
+    this.basemapLabel = basemapLabel;
+    this.basemapImagePath = basemapImagePath;
+  }
+}
+
+function isHarmonyBasemapModeValue(mode: number): boolean {
+  return mode === BASEMAP_HARMONY_STANDARD || mode === BASEMAP_HARMONY_TERRAIN ||
+    mode === BASEMAP_HARMONY_IMAGERY;
+}
+
+function clampLatitudeValue(lat: number): number {
+  if (lat < -90.0) {
+    return -90.0;
+  }
+  if (lat > 90.0) {
+    return 90.0;
+  }
+  return lat;
+}
+
+function clampWebMercatorLatitudeValue(lat: number): number {
+  if (lat < -WEB_MERCATOR_MAX_LATITUDE) {
+    return -WEB_MERCATOR_MAX_LATITUDE;
+  }
+  if (lat > WEB_MERCATOR_MAX_LATITUDE) {
+    return WEB_MERCATOR_MAX_LATITUDE;
+  }
+  return lat;
+}
+
+function clampLongitudeValue(lon: number): number {
+  let value = lon;
+  while (value < -180.0) {
+    value += 360.0;
+  }
+  while (value > 180.0) {
+    value -= 360.0;
+  }
+  return value;
+}
+
+function webMercatorToLongitude(x: number): number {
+  return clampLongitudeValue(x / WEB_MERCATOR_RADIUS_METERS * 180.0 / Math.PI);
+}
+
+function webMercatorToLatitude(y: number): number {
+  let lat = (2.0 * Math.atan(Math.exp(y / WEB_MERCATOR_RADIUS_METERS)) - Math.PI / 2.0) * 180.0 / Math.PI;
+  return clampLatitudeValue(lat);
+}
+
+function lonLatToWebMercatorEnvelope(envelope: GisEnvelope): GisEnvelope {
+  let minLon = clampLongitudeValue(envelope.minX);
+  let maxLon = clampLongitudeValue(envelope.maxX);
+  let minLat = clampWebMercatorLatitudeValue(envelope.minY);
+  let maxLat = clampWebMercatorLatitudeValue(envelope.maxY);
+  let minX = WEB_MERCATOR_RADIUS_METERS * minLon * Math.PI / 180.0;
+  let maxX = WEB_MERCATOR_RADIUS_METERS * maxLon * Math.PI / 180.0;
+  let minLatRad = minLat * Math.PI / 180.0;
+  let maxLatRad = maxLat * Math.PI / 180.0;
+  let minY = WEB_MERCATOR_RADIUS_METERS * Math.log(Math.tan(Math.PI / 4.0 + minLatRad / 2.0));
+  let maxY = WEB_MERCATOR_RADIUS_METERS * Math.log(Math.tan(Math.PI / 4.0 + maxLatRad / 2.0));
+  return new GisEnvelope(Math.min(minX, maxX), Math.min(minY, maxY), Math.max(minX, maxX), Math.max(minY, maxY));
+}
+
+function combineEnvelopeValues(base: GisEnvelope, next: GisEnvelope): void {
+  if (next.minX < base.minX) {
+    base.minX = next.minX;
+  }
+  if (next.minY < base.minY) {
+    base.minY = next.minY;
+  }
+  if (next.maxX > base.maxX) {
+    base.maxX = next.maxX;
+  }
+  if (next.maxY > base.maxY) {
+    base.maxY = next.maxY;
+  }
+}
+
+function isUsableEnvelope(envelope: GisEnvelope): boolean {
+  return envelope.maxX > envelope.minX && envelope.maxY > envelope.minY;
+}
+
+function defaultStaticBasemapExtent(width: number, height: number): GisEnvelope {
+  let centerLongitude = 112.55;
+  let centerLatitude = 37.87;
+  let centerX = centerLongitude / 180.0 * WEB_MERCATOR_ORIGIN_SHIFT;
+  let latitudeRadians = centerLatitude * Math.PI / 180.0;
+  let centerY = Math.log(Math.tan(Math.PI / 4.0 + latitudeRadians / 2.0)) / Math.PI *
+    WEB_MERCATOR_ORIGIN_SHIFT;
+  let metersPerPixel = WEB_MERCATOR_INITIAL_RESOLUTION / 64.0;
+  let halfWidth = Math.max(1, width) * metersPerPixel / 2.0;
+  let halfHeight = Math.max(1, height) * metersPerPixel / 2.0;
+  return new GisEnvelope(centerX - halfWidth, centerY - halfHeight, centerX + halfWidth, centerY + halfHeight);
+}
+
+function visibleWebMercatorExtent(): GisEnvelope | undefined {
+  let service = getGisService();
+  let combined: GisEnvelope | undefined = undefined;
+  for (let i = 0; i < service.getLayerCount(); i++) {
+    let layer: GisLoadedLayer | undefined = service.getLayer(i);
+    if (layer === undefined || !layer.visible || !isUsableEnvelope(layer.info.envelope)) {
+      continue;
+    }
+    let layerExtent: GisEnvelope | undefined = undefined;
+    if (layer.info.crs.length > 0) {
+      let transformResult: GisEnvelopeTransformResult =
+        service.transformEnvelope(layer.info.crs, 'EPSG:3857', layer.info.envelope);
+      if (transformResult.ok && isUsableEnvelope(transformResult.envelope)) {
+        layerExtent = transformResult.envelope;
+      }
+    } else if (layer.info.crsIsGeographic || layer.info.coordinateUnitType === 1) {
+      layerExtent = lonLatToWebMercatorEnvelope(layer.info.envelope);
+    }
+    if (layerExtent === undefined) {
+      continue;
+    }
+    if (combined === undefined) {
+      combined = new GisEnvelope(layerExtent.minX, layerExtent.minY, layerExtent.maxX, layerExtent.maxY);
+    } else {
+      combineEnvelopeValues(combined, layerExtent);
+    }
+  }
+  return combined;
+}
+
+function staticBasemapZoom(envelope: GisEnvelope, width: number, height: number): number {
+  let requestedResolution = Math.max((envelope.maxX - envelope.minX) / Math.max(1, width),
+    (envelope.maxY - envelope.minY) / Math.max(1, height));
+  if (requestedResolution <= 0.0) {
+    return 10;
+  }
+  let zoom = Math.log(WEB_MERCATOR_INITIAL_RESOLUTION / requestedResolution) / Math.log(2.0);
+  if (zoom < 2) {
+    return 2;
+  }
+  if (zoom > 20) {
+    return 20;
+  }
+  return zoom;
+}
+
+async function writePixelMapPng(pixelMap: image.PixelMap, outputPath: string): Promise<void> {
+  let packer: image.ImagePacker = image.createImagePacker();
+  let packingOption: image.PackingOption = {
+    format: 'image/png',
+    quality: 100
+  };
+  let data: ArrayBuffer = await packer.packing(pixelMap, packingOption);
+  let file = fs.openSync(outputPath, fs.OpenMode.CREATE | fs.OpenMode.WRITE_ONLY | fs.OpenMode.TRUNC);
+  try {
+    fs.writeSync(file.fd, data);
+  } finally {
+    fs.closeSync(file.fd);
+  }
+}
+
+async function createMapKitStaticBasemapImage(ctx: common.UIAbilityContext, exportDir: string, imageWidth: number,
+  imageHeight: number): Promise<string> {
+  let extent = visibleWebMercatorExtent();
+  if (extent === undefined) {
+    extent = defaultStaticBasemapExtent(imageWidth, imageHeight);
+  }
+  let centerX = (extent.minX + extent.maxX) / 2.0;
+  let centerY = (extent.minY + extent.maxY) / 2.0;
+  let option: staticMap.StaticMapOptions = {
+    location: {
+      latitude: webMercatorToLatitude(centerY),
+      longitude: webMercatorToLongitude(centerX)
+    },
+    zoom: staticBasemapZoom(extent, imageWidth, imageHeight),
+    imageWidth: imageWidth,
+    imageHeight: imageHeight,
+    scale: 1
+  };
+  let pixelMap: image.PixelMap = await staticMap.getMapImage(ctx, option);
+  let imagePath = exportDir + '/mapkit_static_basemap_' + new Date().getTime().toString() + '.png';
+  await writePixelMapPng(pixelMap, imagePath);
+  return imagePath;
+}
 
 class GeoNestPrintDocumentAdapter implements print.PrintDocumentAdapter {
   sourcePath: string = '';
@@ -164,8 +361,36 @@ export struct MapLayoutSheet {
     return label;
   }
 
+  private staticExportBasemapMode(): number {
+    let mode = this.currentBasemapMode();
+    if (mode === BASEMAP_HARMONY_STANDARD) {
+      return BASEMAP_ONLINE_STANDARD;
+    }
+    if (mode === BASEMAP_HARMONY_TERRAIN) {
+      return BASEMAP_TERRAIN;
+    }
+    if (mode === BASEMAP_HARMONY_IMAGERY) {
+      return BASEMAP_IMAGERY;
+    }
+    return mode;
+  }
+
+  private isHarmonyStaticFallback(): boolean {
+    let mode = this.currentBasemapMode();
+    return mode === BASEMAP_HARMONY_STANDARD || mode === BASEMAP_HARMONY_TERRAIN ||
+      mode === BASEMAP_HARMONY_IMAGERY;
+  }
+
+  private exportBasemapLabel(): string {
+    let label = this.currentBasemapLabel();
+    if (this.isHarmonyStaticFallback()) {
+      return label + ' · ' + MAPKIT_STATIC_BASEMAP_ATTRIBUTION;
+    }
+    return label;
+  }
+
   private exportFooterText(): string {
-    return this.footerText + ' · ' + this.currentBasemapLabel();
+    return this.footerText + ' · ' + this.exportBasemapLabel();
   }
 
   private isPreviewTerrainBasemap(): boolean {
@@ -207,7 +432,23 @@ export struct MapLayoutSheet {
     return false;
   }
 
-  private exportLayoutToSandbox(): GisGeoProcessResult {
+  private async buildExportBasemapContext(exportDir: string, mapWidth: number,
+    mapHeight: number): Promise<StaticBasemapExportContext> {
+    if (!this.isHarmonyStaticFallback()) {
+      return new StaticBasemapExportContext(this.staticExportBasemapMode(), this.exportBasemapLabel(), '');
+    }
+    this.statusText = '正在生成真实花瓣静态底图';
+    try {
+      let imagePath = await createMapKitStaticBasemapImage(getContext(this) as common.UIAbilityContext, exportDir,
+        mapWidth, mapHeight);
+      return new StaticBasemapExportContext(this.staticExportBasemapMode(), this.exportBasemapLabel(), imagePath);
+    } catch (e) {
+      this.statusText = '花瓣静态底图不可用，已自动回退本地矢量底图';
+      return new StaticBasemapExportContext(BASEMAP_VECTOR, '本地矢量底图 · 花瓣静态底图生成失败后自动回退', '');
+    }
+  }
+
+  private async exportLayoutToSandbox(): Promise<GisGeoProcessResult> {
     let ctx = getContext(this) as common.UIAbilityContext;
     let exportDir = ctx.filesDir + '/geonest_exports';
     try {
@@ -216,10 +457,13 @@ export struct MapLayoutSheet {
     }
     let fileName = this.nextOutputFileName();
     let outputPath = exportDir + '/' + fileName;
+    let basemapContext: StaticBasemapExportContext;
+    basemapContext = await this.buildExportBasemapContext(exportDir, Math.max(32, this.outputWidth() - 64),
+      Math.max(32, this.outputHeight() - 144));
     let result: GisGeoProcessResult = getGisService().exportMapLayout(this.layoutTitle, outputPath,
       this.formatCode(), this.showLegend, this.showScale, this.showNorth, this.showGrid,
       this.outputWidth(), this.outputHeight(), this.legendTitle, this.scaleText, this.exportFooterText(),
-      this.currentBasemapMode(), this.currentBasemapLabel());
+      basemapContext.basemapMode, basemapContext.basemapLabel, basemapContext.basemapImagePath);
     if (result.ok) {
       this.lastExportPath = result.outputPath;
       this.lastExportName = fileName;
@@ -230,8 +474,8 @@ export struct MapLayoutSheet {
     return result;
   }
 
-  private saveLayoutToFile(): void {
-    let result = this.exportLayoutToSandbox();
+  private async saveLayoutToFile(): Promise<void> {
+    let result = await this.exportLayoutToSandbox();
     if (!result.ok) {
       return;
     }
@@ -254,12 +498,12 @@ export struct MapLayoutSheet {
     }
   }
 
-  private saveLayoutToAlbum(): void {
+  private async saveLayoutToAlbum(): Promise<void> {
     if (this.exportFormat !== 0) {
       this.statusText = '相册仅支持 PNG 图片，请先切换 PNG';
       return;
     }
-    let result = this.exportLayoutToSandbox();
+    let result = await this.exportLayoutToSandbox();
     if (!result.ok) {
       return;
     }
@@ -515,9 +759,13 @@ export struct MapLayoutSheet {
         Row({ space: 8 }) {
           this.chip('图例', 0, 1)
           this.chip('比例尺', 0, 2)
+        }
+        .width('100%')
+        Row({ space: 8 }) {
           this.chip('指北针', 0, 3)
           this.chip('坐标网', 0, 4)
         }
+        .width('100%')
       }
       .padding(14)
       .borderRadius(7)
@@ -558,6 +806,13 @@ export struct MapLayoutSheet {
           .fontColor($r('app.color.gn_text_muted'))
           .maxLines(2)
           .textOverflow({ overflow: TextOverflow.Ellipsis })
+        if (this.isHarmonyStaticFallback()) {
+          Text('出图会调用 Map Kit 静态图生成真实花瓣底图，并保留版权标注。')
+            .fontSize(10)
+            .fontColor($r('app.color.gn_orange_700'))
+            .maxLines(2)
+            .textOverflow({ overflow: TextOverflow.Ellipsis })
+        }
       }
       .width('100%')
       .padding(12)
@@ -575,10 +830,10 @@ export struct MapLayoutSheet {
         .width('100%')
         .fontSize(13)
         .fontColor(Color.White)
-        .backgroundColor($r('app.color.gn_blue_800'))
-        .onClick(() => {
-          this.saveLayoutToFile();
-        })
+          .backgroundColor($r('app.color.gn_blue_800'))
+          .onClick(() => {
+            this.saveLayoutToFile();
+          })
       Button('保存到相册', { type: ButtonType.Capsule, stateEffect: true })
         .height(38)
         .width('100%')
@@ -586,9 +841,9 @@ export struct MapLayoutSheet {
         .fontColor(this.exportFormat === 0 ? $r('app.color.gn_blue_800') : $r('app.color.gn_text_muted'))
         .backgroundColor($r('app.color.gn_pane'))
         .enabled(this.exportFormat === 0)
-        .onClick(() => {
-          this.saveLayoutToAlbum();
-        })
+            .onClick(() => {
+              this.saveLayoutToAlbum();
+            })
     }
     .width(220)
     .padding(12)
@@ -650,12 +905,13 @@ export struct MapLayoutSheet {
   build() {
     Row().width(0).height(0)
       .bindSheet($$this.isShow, this.sheetContent(), {
-        detents: [SheetSize.LARGE],
+        width: 900,
+        height: 690,
+        detents: [690],
         preferType: SheetType.CENTER,
         dragBar: false,
         backgroundColor: Color.Transparent,
-        blurStyle: BlurStyle.Thin,
-        systemMaterial: MaterialStyle.nativeMaterial(this.materialEnabled),
+        blurStyle: BlurStyle.Regular,
         showClose: false,
         onDisappear: (): void => { this.isShow = false; }
       })
@@ -878,7 +1134,7 @@ export struct PrintSheet {
 
   private footerLabel(): string {
     return 'GeoNest 打印输出 · ' + this.paperName() + ' · ' + this.qualityName() + ' · ' +
-      this.currentBasemapLabel();
+      this.printBasemapLabel();
   }
 
   private currentBasemapMode(): number {
@@ -889,6 +1145,34 @@ export struct PrintSheet {
     let label = this.onGetBasemapLabel();
     if (label.length === 0) {
       return '本地矢量底图';
+    }
+    return label;
+  }
+
+  private staticExportBasemapMode(): number {
+    let mode = this.currentBasemapMode();
+    if (mode === BASEMAP_HARMONY_STANDARD) {
+      return BASEMAP_ONLINE_STANDARD;
+    }
+    if (mode === BASEMAP_HARMONY_TERRAIN) {
+      return BASEMAP_TERRAIN;
+    }
+    if (mode === BASEMAP_HARMONY_IMAGERY) {
+      return BASEMAP_IMAGERY;
+    }
+    return mode;
+  }
+
+  private isHarmonyStaticFallback(): boolean {
+    let mode = this.currentBasemapMode();
+    return mode === BASEMAP_HARMONY_STANDARD || mode === BASEMAP_HARMONY_TERRAIN ||
+      mode === BASEMAP_HARMONY_IMAGERY;
+  }
+
+  private printBasemapLabel(): string {
+    let label = this.currentBasemapLabel();
+    if (this.isHarmonyStaticFallback()) {
+      return label + ' · ' + MAPKIT_STATIC_BASEMAP_ATTRIBUTION;
     }
     return label;
   }
@@ -960,7 +1244,23 @@ export struct PrintSheet {
     return MAP_PRINT_BASE_NAME + '_' + new Date().getTime().toString() + '.pdf';
   }
 
-  private exportPrintPdf(): GisGeoProcessResult {
+  private async buildPrintBasemapContext(exportDir: string, mapWidth: number,
+    mapHeight: number): Promise<StaticBasemapExportContext> {
+    if (!this.isHarmonyStaticFallback()) {
+      return new StaticBasemapExportContext(this.staticExportBasemapMode(), this.printBasemapLabel(), '');
+    }
+    this.statusText = '正在生成真实花瓣静态底图';
+    try {
+      let imagePath = await createMapKitStaticBasemapImage(getContext(this) as common.UIAbilityContext, exportDir,
+        mapWidth, mapHeight);
+      return new StaticBasemapExportContext(this.staticExportBasemapMode(), this.printBasemapLabel(), imagePath);
+    } catch (e) {
+      this.statusText = '花瓣静态底图不可用，已自动回退本地矢量底图';
+      return new StaticBasemapExportContext(BASEMAP_VECTOR, '本地矢量底图 · 花瓣静态底图生成失败后自动回退', '');
+    }
+  }
+
+  private async exportPrintPdf(): Promise<GisGeoProcessResult> {
     let ctx = getContext(this) as common.UIAbilityContext;
     let exportDir = ctx.filesDir + '/geonest_print';
     try {
@@ -969,9 +1269,13 @@ export struct PrintSheet {
     }
     let fileName = this.nextPrintFileName();
     let outputPath = exportDir + '/' + fileName;
+    let basemapContext: StaticBasemapExportContext;
+    basemapContext = await this.buildPrintBasemapContext(exportDir, Math.max(32, this.layoutWidth() - 64),
+      Math.max(32, this.layoutHeight() - 144));
     let result: GisGeoProcessResult = getGisService().exportMapLayout(this.mapTitle, outputPath, 'pdf',
       this.showLegend, this.showScale, this.showNorth, this.showGrid, this.layoutWidth(), this.layoutHeight(),
-      '图例', this.scaleLabel(), this.footerLabel(), this.currentBasemapMode(), this.currentBasemapLabel());
+      '图例', this.scaleLabel(), this.footerLabel(), basemapContext.basemapMode, basemapContext.basemapLabel,
+      basemapContext.basemapImagePath);
     if (result.ok) {
       this.statusText = '已生成打印 PDF：' + fileName;
     } else {
@@ -980,13 +1284,13 @@ export struct PrintSheet {
     return result;
   }
 
-  private startSystemPrint(): void {
-    if (getGisService().getVisibleLayerCount() === 0) {
+  private async startSystemPrint(): Promise<void> {
+    if (getGisService().getVisibleLayerCount() === 0 && this.staticExportBasemapMode() === BASEMAP_VECTOR) {
       this.statusText = '当前没有可打印图层';
       return;
     }
     this.statusText = '正在生成打印 PDF';
-    let result = this.exportPrintPdf();
+    let result = await this.exportPrintPdf();
     if (!result.ok) {
       return;
     }
@@ -1490,12 +1794,13 @@ export struct PrintSheet {
   build() {
     Row().width(0).height(0)
       .bindSheet($$this.isShow, this.sheetContent(), {
-        detents: [SheetSize.LARGE],
+        width: 900,
+        height: 690,
+        detents: [690],
         preferType: SheetType.CENTER,
         dragBar: false,
         backgroundColor: Color.Transparent,
-        blurStyle: BlurStyle.Thin,
-        systemMaterial: MaterialStyle.nativeMaterial(this.materialEnabled),
+        blurStyle: BlurStyle.Regular,
         showClose: false,
         onDisappear: (): void => { this.isShow = false; }
       })

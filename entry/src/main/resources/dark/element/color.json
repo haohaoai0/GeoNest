@@ -41,24 +41,8 @@
       "value": "#102D55"
     },
     {
-      "name": "gn_blue_800",
-      "value": "#2B6DB8"
-    },
-    {
       "name": "gn_blue_700",
       "value": "#3B7CCA"
-    },
-    {
-      "name": "gn_blue_100",
-      "value": "#203A5F"
-    },
-    {
-      "name": "gn_green_700",
-      "value": "#37A878"
-    },
-    {
-      "name": "gn_orange_700",
-      "value": "#D9892C"
     },
     {
       "name": "gn_red_700",
@@ -71,34 +55,6 @@
     {
       "name": "gn_bg",
       "value": "#141A18"
-    },
-    {
-      "name": "gn_pane",
-      "value": "#1D2522"
-    },
-    {
-      "name": "gn_pane_alt",
-      "value": "#26302C"
-    },
-    {
-      "name": "gn_paper",
-      "value": "#202825"
-    },
-    {
-      "name": "gn_text_primary",
-      "value": "#EFF5F1"
-    },
-    {
-      "name": "gn_text_muted",
-      "value": "#A5B1AB"
-    },
-    {
-      "name": "gn_line",
-      "value": "#37433E"
-    },
-    {
-      "name": "gn_line_strong",
-      "value": "#4A5752"
     },
     {
       "name": "gn_map_bg",
@@ -139,18 +95,6 @@
     {
       "name": "gn_arc_window",
       "value": "#171B1F"
-    },
-    {
-      "name": "gn_arc_active",
-      "value": "#243247"
-    },
-    {
-      "name": "gn_arc_selected",
-      "value": "#1E3448"
-    },
-    {
-      "name": "gn_arc_focus",
-      "value": "#3A9FE6"
     },
     {
       "name": "gn_arc_canvas",

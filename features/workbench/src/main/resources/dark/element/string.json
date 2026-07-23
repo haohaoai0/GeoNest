@@ -1,0 +1,60 @@
+{
+  "string": [
+    {
+      "name": "gn_cmd_second_map",
+      "value": "第二地图"
+    },
+    {
+      "name": "gn_cmd_link_view",
+      "value": "链接视图"
+    },
+    {
+      "name": "gn_cmd_copy_clipboard",
+      "value": "复制"
+    },
+    {
+      "name": "gn_cmd_paste_clipboard",
+      "value": "粘贴"
+    },
+    {
+      "name": "gn_expression_workbench_title",
+      "value": "表达式工作台"
+    },
+    {
+      "name": "gn_expression_workbench_desc",
+      "value": "字段计算、条件筛选、按表达式提取和批量赋值集中执行"
+    },
+    {
+      "name": "gn_cmd_quality_check",
+      "value": "数据质检"
+    },
+    {
+      "name": "gn_workbench_quality_check_desc",
+      "value": "生成拓扑和属性错误点图层"
+    },
+    {
+      "name": "gn_tool_quality_check_desc",
+      "value": "输出错误点图层，检查无效几何、重复点、面重叠、悬挂线和字段缺失"
+    },
+    {
+      "name": "gn_data_view",
+      "value": "数据视图"
+    },
+    {
+      "name": "gn_layout_view",
+      "value": "制图视图"
+    },
+    {
+      "name": "gn_layout_properties",
+      "value": "版面属性"
+    },
+    {
+      "name": "gn_scene_3d_view",
+      "value": "三维场景"
+    },
+    {
+      "name": "gn_scene_2d_view",
+      "value": "返回二维"
+    }
+  ]
+}

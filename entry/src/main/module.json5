@@ -5,7 +5,6 @@
     "description": "$string:module_desc",
     "mainElement": "EntryAbility",
     "deviceTypes": [
-      "phone",
       "2in1"
     ],
     "deliveryWithInstall": true,
@@ -36,7 +35,27 @@
           "when": "inuse"
         }
       },
-      { "name": "ohos.permission.PRINT" }
+      /*{
+        "name": "ohos.permission.READ_PASTEBOARD",
+        "reason": "$string:gn_pasteboard_permission_reason",
+        "usedScene": {
+          "abilities": [
+            "EntryAbility"
+          ],
+          "when": "inuse"
+        }
+      },*/
+      { "name": "ohos.permission.PRINT" },
+     /* {
+        "name": "ohos.permission.DISTRIBUTED_DATASYNC",
+        "reason": "$string:gn_distributed_permission_reason",
+        "usedScene": {
+          "abilities": [
+            "EntryAbility"
+          ],
+          "when": "inuse"
+        }
+      }*/
     ],
     "installationFree": false,
     "pages": "$profile:main_pages",
@@ -51,6 +70,17 @@
         "startWindowBackground": "$color:start_window_background",
         "orientation": "auto_rotation_landscape",
         "exported": true,
+        "supportWindowMode": [
+          "fullscreen",
+          "split",
+          "floating"
+        ],
+        "metadata": [
+          {
+            "name": "ohos.ability.window.isMaximize",
+            "value": "true"
+          }
+        ],
         "skills": [
           {
             "entities": [
@@ -104,6 +134,103 @@
                 "scheme": "file",
                 "type": "application/vnd.google-earth.kml+xml",
                 "linkFeature": "FileOpen"
+              },
+              {
+                "scheme": "file",
+                "type": "application/x-esri-shape",
+                "linkFeature": "FileOpen"
+              },
+              {
+                "scheme": "file",
+                "type": "application/x-dbf",
+                "linkFeature": "FileOpen"
+              },
+              {
+                "scheme": "file",
+                "type": "application/x-shx",
+                "linkFeature": "FileOpen"
+              },
+              {
+                "scheme": "file",
+                "type": "application/x-proj",
+                "linkFeature": "FileOpen"
+              },
+              {
+                "scheme": "file",
+                "type": "application/vnd.ms-excel",
+                "linkFeature": "FileOpen"
+              },
+              {
+                "scheme": "file",
+                "type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                "linkFeature": "FileOpen"
+              }
+            ]
+          },
+          {
+            "actions": [
+              "ohos.want.action.sendData"
+            ],
+            "uris": [
+              {
+                "scheme": "file",
+                "utd": "general.image",
+                "maxFileSupported": 16
+              },
+              {
+                "scheme": "file",
+                "utd": "general.file",
+                "maxFileSupported": 16
+              },
+              {
+                "scheme": "file",
+                "type": "application/x-esri-shape",
+                "maxFileSupported": 16
+              },
+              {
+                "scheme": "file",
+                "type": "application/geo+json",
+                "maxFileSupported": 16
+              },
+              {
+                "scheme": "file",
+                "type": "application/geopackage+sqlite3",
+                "maxFileSupported": 16
+              },
+              {
+                "scheme": "file",
+                "type": "application/vnd.google-earth.kml+xml",
+                "maxFileSupported": 16
+              },
+              {
+                "scheme": "file",
+                "type": "application/vnd.google-earth.kmz",
+                "maxFileSupported": 16
+              },
+              {
+                "scheme": "file",
+                "type": "text/csv",
+                "maxFileSupported": 16
+              },
+              {
+                "scheme": "file",
+                "type": "application/octet-stream",
+                "maxFileSupported": 16
+              },
+              {
+                "scheme": "file",
+                "type": "image/tiff",
+                "maxFileSupported": 16
+              },
+              {
+                "scheme": "file",
+                "type": "image/jpeg",
+                "maxFileSupported": 16
+              },
+              {
+                "scheme": "file",
+                "type": "image/png",
+                "maxFileSupported": 16
               }
             ]
           }
@@ -111,6 +238,19 @@
       }
     ],
     "extensionAbilities": [
+      {
+        "name": "GeoNestFormAbility",
+        "srcEntry": "./ets/entryformability/GeoNestFormAbility.ets",
+        "label": "$string:gn_service_widget_display_name",
+        "description": "$string:gn_service_widget_desc",
+        "type": "form",
+        "metadata": [
+          {
+            "name": "ohos.extension.form",
+            "resource": "$profile:geonest_form_config"
+          }
+        ]
+      },
       {
         "name": "EntryBackupAbility",
         "srcEntry": "./ets/entrybackupability/EntryBackupAbility.ets",

@@ -1,0 +1,27 @@
+{
+  "forms": [
+    {
+      "name": "geonest_card",
+      "displayName": "$string:gn_service_widget_display_name",
+      "description": "$string:gn_service_widget_desc",
+      "src": "./ets/widget/pages/GeoNestCard.ets",
+      "uiSyntax": "arkts",
+      "window": {
+        "designWidth": 720,
+        "autoDesignWidth": true
+      },
+      "colorMode": "auto",
+      "isDynamic": true,
+      "isDefault": true,
+      "updateEnabled": true,
+      "scheduledUpdateTime": "10:30",
+      "updateDuration": 1,
+      "defaultDimension": "2*2",
+      "supportDimensions": [
+        "2*2",
+        "2*4"
+      ],
+      "transparencyEnabled": false
+    }
+  ]
+}

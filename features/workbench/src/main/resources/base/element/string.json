@@ -1,0 +1,952 @@
+{
+  "string": [
+    {
+      "name": "gn_cmd_explore",
+      "value": "浏览"
+    },
+    {
+      "name": "gn_cmd_basemap",
+      "value": "底图"
+    },
+    {
+      "name": "gn_cmd_add_data",
+      "value": "添加数据"
+    },
+    {
+      "name": "gn_cmd_second_map",
+      "value": "第二地图"
+    },
+    {
+      "name": "gn_cmd_link_view",
+      "value": "链接视图"
+    },
+    {
+      "name": "gn_cmd_copy_clipboard",
+      "value": "复制"
+    },
+    {
+      "name": "gn_cmd_paste_clipboard",
+      "value": "粘贴"
+    },
+    {
+      "name": "gn_cmd_labeling",
+      "value": "标注"
+    },
+    {
+      "name": "gn_cmd_clip",
+      "value": "裁剪"
+    },
+    {
+      "name": "gn_cmd_buffer",
+      "value": "缓冲区"
+    },
+    {
+      "name": "gn_cmd_repair",
+      "value": "修复"
+    },
+    {
+      "name": "gn_cmd_export",
+      "value": "导出"
+    },
+    {
+      "name": "gn_cmd_share",
+      "value": "分享"
+    },
+    {
+      "name": "gn_cmd_cloud_manage",
+      "value": "云空间管理"
+    },
+    {
+      "name": "gn_cmd_cloud_push",
+      "value": "上传到云空间"
+    },
+    {
+      "name": "gn_cmd_cloud_pull",
+      "value": "从云空间拉取"
+    },
+    {
+      "name": "gn_cmd_define_projection",
+      "value": "定义投影"
+    },
+    {
+      "name": "gn_cmd_project_layer",
+      "value": "投影转换"
+    },
+    {
+      "name": "gn_cmd_simplify",
+      "value": "简化几何"
+    },
+    {
+      "name": "gn_cmd_dissolve",
+      "value": "融合全部"
+    },
+    {
+      "name": "gn_cmd_centroid",
+      "value": "生成质心"
+    },
+    {
+      "name": "gn_cmd_convex_hull",
+      "value": "凸包"
+    },
+    {
+      "name": "gn_cmd_bounding_boxes",
+      "value": "外包框"
+    },
+    {
+      "name": "gn_cmd_oriented_minimum_bounding_box",
+      "value": "最小旋转外包框"
+    },
+    {
+      "name": "gn_cmd_multipart_to_singleparts",
+      "value": "多部件转单部件"
+    },
+    {
+      "name": "gn_cmd_extract_by_expression",
+      "value": "按表达式提取"
+    },
+    {
+      "name": "gn_cmd_difference",
+      "value": "差集"
+    },
+    {
+      "name": "gn_cmd_symmetrical_difference",
+      "value": "对称差集"
+    },
+    {
+      "name": "gn_cmd_merge_layers",
+      "value": "合并图层"
+    },
+    {
+      "name": "gn_cmd_multi_ring_buffer",
+      "value": "多环缓冲"
+    },
+    {
+      "name": "gn_cmd_extract_by_location",
+      "value": "按位置提取"
+    },
+    {
+      "name": "gn_cmd_spatial_join_summary",
+      "value": "空间连接汇总"
+    },
+    {
+      "name": "gn_cmd_intersection",
+      "value": "相交"
+    },
+    {
+      "name": "gn_cmd_nearest_neighbor",
+      "value": "最近邻"
+    },
+    {
+      "name": "gn_cmd_voronoi",
+      "value": "泰森多边形"
+    },
+    {
+      "name": "gn_contents_search_placeholder",
+      "value": "搜索内容"
+    },
+    {
+      "name": "gn_contents_drawing_order",
+      "value": "顺序"
+    },
+    {
+      "name": "gn_contents_source",
+      "value": "源"
+    },
+    {
+      "name": "gn_contents_selection",
+      "value": "选择"
+    },
+    {
+      "name": "gn_contents_labeling",
+      "value": "标注"
+    },
+    {
+      "name": "gn_contents_editing",
+      "value": "编辑"
+    },
+    {
+      "name": "gn_contents_empty_title",
+      "value": "暂无图层"
+    },
+    {
+      "name": "gn_contents_empty_desc",
+      "value": "点击添加数据导入 Shapefile，或加载示例数据。"
+    },
+    {
+      "name": "gn_contents_active_edit",
+      "value": "活动"
+    },
+    {
+      "name": "gn_map_section",
+      "value": "地图"
+    },
+    {
+      "name": "gn_project",
+      "value": "工程"
+    },
+    {
+      "name": "gn_symbology",
+      "value": "符号系统"
+    },
+    {
+      "name": "gn_data_reviewer",
+      "value": "数据检查"
+    },
+    {
+      "name": "gn_project_info",
+      "value": "项目信息"
+    },
+    {
+      "name": "gn_sync",
+      "value": "同步"
+    },
+    {
+      "name": "gn_tool_runner_desc",
+      "value": "配置裁剪输入、裁剪范围和输出图层。"
+    },
+    {
+      "name": "gn_huawei_account_login",
+      "value": "登录华为账号"
+    },
+    {
+      "name": "gn_huawei_account_logout",
+      "value": "退出华为账号"
+    },
+    {
+      "name": "gn_cloud_sheet_title",
+      "value": "华为云空间同步"
+    },
+    {
+      "name": "gn_cloud_sheet_desc",
+      "value": "上传当前工程包及图层资产，或从云端恢复一致的工程状态。"
+    },
+    {
+      "name": "gn_cloud_status_label",
+      "value": "当前状态"
+    },
+    {
+      "name": "gn_cloud_project_label",
+      "value": "云端工程"
+    },
+    {
+      "name": "gn_cloud_time_label",
+      "value": "最近同步"
+    },
+    {
+      "name": "gn_cloud_action_label",
+      "value": "最近操作"
+    },
+    {
+      "name": "gn_cloud_logs_label",
+      "value": "同步日志"
+    },
+    {
+      "name": "gn_arc_go_to_xy",
+      "value": "转到 XY"
+    },
+    {
+      "name": "gn_arc_xy_table",
+      "value": "XY 表转点"
+    },
+    {
+      "name": "gn_arc_coordinate_conversion",
+      "value": "坐标转换"
+    },
+    {
+      "name": "gn_arc_portal",
+      "value": "门户"
+    },
+    {
+      "name": "gn_arc_computer",
+      "value": "计算机"
+    },
+    {
+      "name": "gn_arc_favorites",
+      "value": "收藏夹"
+    },
+    {
+      "name": "gn_arc_search_project",
+      "value": "搜索工程"
+    },
+    {
+      "name": "gn_arc_maps",
+      "value": "地图"
+    },
+    {
+      "name": "gn_arc_toolboxes",
+      "value": "工具箱"
+    },
+    {
+      "name": "gn_arc_databases",
+      "value": "数据库"
+    },
+    {
+      "name": "gn_arc_styles",
+      "value": "样式"
+    },
+    {
+      "name": "gn_arc_folders",
+      "value": "文件夹"
+    },
+    {
+      "name": "gn_arc_locators",
+      "value": "定位器"
+    },
+    {
+      "name": "gn_arc_python",
+      "value": "Python"
+    },
+    {
+      "name": "gn_workbench_title",
+      "value": "GeoNest GIS 工作台"
+    },
+    {
+      "name": "gn_workbench_command_search",
+      "value": "搜索命令、图层或工具"
+    },
+    {
+      "name": "gn_backstage_file",
+      "value": "文件"
+    },
+    {
+      "name": "gn_backstage_about",
+      "value": "关于"
+    },
+    {
+      "name": "gn_backstage_help",
+      "value": "帮助"
+    },
+    {
+      "name": "gn_backstage_product_title",
+      "value": "GeoNest GIS"
+    },
+    {
+      "name": "gn_backstage_product_desc",
+      "value": "面向 HarmonyOS 的桌面 GIS 工作台，集成 QGIS Core、Huawei Map、Shapefile 处理和制图输出。"
+    },
+    {
+      "name": "gn_open_source_license_title",
+      "value": "开源许可"
+    },
+    {
+      "name": "gn_open_source_copyright",
+      "value": "Copyright © 2026 Fanha 与 GeoNest 贡献者"
+    },
+    {
+      "name": "gn_open_source_rights",
+      "value": "GeoNest 是自由软件，按照 GNU GPL 第 2 版或任何后续版本发布。您可以依照该许可证复制、修改和再分发本程序。"
+    },
+    {
+      "name": "gn_open_source_no_warranty",
+      "value": "本程序不提供任何担保，包括适销性或特定用途适用性的默示担保。"
+    },
+    {
+      "name": "gn_open_source_source_entry",
+      "value": "源码：https://github.com/haohaoai0/GeoNest；每个 APP/HAP 的修改版 QGIS、Qt 和原生依赖源码包位于同版本 Releases。"
+    },
+    {
+      "name": "gn_open_source_show_licenses",
+      "value": "查看完整许可证与源码说明"
+    },
+    {
+      "name": "gn_open_source_hide_licenses",
+      "value": "收起完整许可证与源码说明"
+    },
+    {
+      "name": "gn_open_source_qgis_title",
+      "value": "关于 QGIS"
+    },
+    {
+      "name": "gn_open_source_qgis_desc",
+      "value": "QGIS 是 OSGeo 旗下的自由开源地理信息系统。GeoNest 直接使用 QGIS Core，并按 GPL 要求提供完整对应源码。QGIS 的 Qt 链接例外不改变 GeoNest 的 GPL 发布义务。"
+    },
+    {
+      "name": "gn_backstage_project_summary",
+      "value": "工程信息"
+    },
+    {
+      "name": "gn_backstage_map_status",
+      "value": "地图状态"
+    },
+    {
+      "name": "gn_backstage_reference_status",
+      "value": "坐标参考"
+    },
+    {
+      "name": "gn_workbench_group_project",
+      "value": "工程"
+    },
+    {
+      "name": "gn_workbench_group_analysis",
+      "value": "分析"
+    },
+    {
+      "name": "gn_workbench_group_edit_tools",
+      "value": "编辑工具"
+    },
+    {
+      "name": "gn_workbench_group_imagery",
+      "value": "影像"
+    },
+    {
+      "name": "gn_workbench_group_share",
+      "value": "共享"
+    },
+    {
+      "name": "gn_workbench_group_help",
+      "value": "帮助"
+    },
+    {
+      "name": "gn_ribbon_tab_project",
+      "value": "工程"
+    },
+    {
+      "name": "gn_ribbon_tab_map",
+      "value": "地图"
+    },
+    {
+      "name": "gn_ribbon_tab_insert",
+      "value": "插入"
+    },
+    {
+      "name": "gn_ribbon_tab_analysis",
+      "value": "分析"
+    },
+    {
+      "name": "gn_ribbon_tab_view",
+      "value": "视图"
+    },
+    {
+      "name": "gn_ribbon_tab_edit",
+      "value": "编辑"
+    },
+    {
+      "name": "gn_ribbon_tab_imagery",
+      "value": "影像"
+    },
+    {
+      "name": "gn_ribbon_tab_share",
+      "value": "共享"
+    },
+    {
+      "name": "gn_ribbon_tab_help",
+      "value": "帮助"
+    },
+    {
+      "name": "gn_ribbon_contents_pane",
+      "value": "内容窗格"
+    },
+    {
+      "name": "gn_ribbon_catalog_pane",
+      "value": "目录窗格"
+    },
+    {
+      "name": "gn_ribbon_vector_edit",
+      "value": "矢量编辑"
+    },
+    {
+      "name": "gn_ribbon_attribute_edit",
+      "value": "属性编辑"
+    },
+    {
+      "name": "gn_ribbon_add_point",
+      "value": "新增点"
+    },
+    {
+      "name": "gn_ribbon_add_line",
+      "value": "新增线"
+    },
+    {
+      "name": "gn_ribbon_add_polygon",
+      "value": "新增面"
+    },
+    {
+      "name": "gn_ribbon_move_node",
+      "value": "移节点"
+    },
+    {
+      "name": "gn_ribbon_delete_node",
+      "value": "删节点"
+    },
+    {
+      "name": "gn_ribbon_raster_display",
+      "value": "栅格显示"
+    },
+    {
+      "name": "gn_ribbon_layout",
+      "value": "地图出图"
+    },
+    {
+      "name": "gn_ribbon_group_insert_new",
+      "value": "新建"
+    },
+    {
+      "name": "gn_ribbon_group_insert_graphics",
+      "value": "图形与标注"
+    },
+    {
+      "name": "gn_ribbon_group_insert_map_elements",
+      "value": "地图元素"
+    },
+    {
+      "name": "gn_workbench_new",
+      "value": "新建"
+    },
+    {
+      "name": "gn_workbench_open",
+      "value": "打开"
+    },
+    {
+      "name": "gn_workbench_save",
+      "value": "保存"
+    },
+    {
+      "name": "gn_workbench_print",
+      "value": "打印"
+    },
+    {
+      "name": "gn_workbench_zoom_in",
+      "value": "放大"
+    },
+    {
+      "name": "gn_workbench_zoom_out",
+      "value": "缩小"
+    },
+    {
+      "name": "gn_workbench_full_extent",
+      "value": "全图"
+    },
+    {
+      "name": "gn_workbench_attribute_table",
+      "value": "属性表"
+    },
+    {
+      "name": "gn_workbench_basemap_vector",
+      "value": "本地矢量底图"
+    },
+    {
+      "name": "gn_workbench_basemap_osm",
+      "value": "CARTO Positron 在线底图"
+    },
+    {
+      "name": "gn_workbench_basemap_topo",
+      "value": "OpenTopoMap 在线地形"
+    },
+    {
+      "name": "gn_workbench_basemap_voyager",
+      "value": "CARTO Voyager 在线底图"
+    },
+    {
+      "name": "gn_workbench_basemap_harmony_standard",
+      "value": "Harmony 标准地图"
+    },
+    {
+      "name": "gn_workbench_basemap_harmony_terrain",
+      "value": "Harmony 地形地图"
+    },
+    {
+      "name": "gn_workbench_basemap_harmony_imagery",
+      "value": "Harmony 影像地图"
+    },
+    {
+      "name": "gn_workbench_dirty_state",
+      "value": "未保存"
+    },
+    {
+      "name": "gn_workbench_clean_state",
+      "value": "已保存"
+    },
+    {
+      "name": "gn_workbench_native_core_unavailable",
+      "value": "Native Core 未加载"
+    },
+    {
+      "name": "gn_workbench_catalog_tab",
+      "value": "地图目录"
+    },
+    {
+      "name": "gn_workbench_tools_tab",
+      "value": "工具箱"
+    },
+    {
+      "name": "gn_workbench_project_catalog",
+      "value": "工程目录"
+    },
+    {
+      "name": "gn_catalog_no_layers_title",
+      "value": "当前工程没有真实图层"
+    },
+    {
+      "name": "gn_catalog_no_layers_desc",
+      "value": "点击添加数据导入 Shapefile"
+    },
+    {
+      "name": "gn_catalog_fields",
+      "value": "字段"
+    },
+    {
+      "name": "gn_catalog_portal_title",
+      "value": "GeoNest 门户"
+    },
+    {
+      "name": "gn_catalog_portal_desc",
+      "value": "云空间同步、共享和在线底图都集中在这里。"
+    },
+    {
+      "name": "gn_catalog_portal_account",
+      "value": "账号"
+    },
+    {
+      "name": "gn_catalog_portal_cloud",
+      "value": "云空间"
+    },
+    {
+      "name": "gn_catalog_portal_manage_desc",
+      "value": "查看工程包、同步日志和云端状态"
+    },
+    {
+      "name": "gn_catalog_portal_push_desc",
+      "value": "上传当前工程和关联图层包"
+    },
+    {
+      "name": "gn_catalog_portal_pull_desc",
+      "value": "从云空间恢复最近保存的工程"
+    },
+    {
+      "name": "gn_catalog_portal_share_desc",
+      "value": "分享当前 Shapefile 图层文件"
+    },
+    {
+      "name": "gn_catalog_computer_title",
+      "value": "本机资源"
+    },
+    {
+      "name": "gn_catalog_computer_desc",
+      "value": "打开本地数据、工程文件和应用工作目录。"
+    },
+    {
+      "name": "gn_catalog_computer_workspace",
+      "value": "应用工作目录"
+    },
+    {
+      "name": "gn_catalog_computer_current_project",
+      "value": "当前工程文件"
+    },
+    {
+      "name": "gn_catalog_computer_active_layer",
+      "value": "当前图层源"
+    },
+    {
+      "name": "gn_catalog_computer_add_data_desc",
+      "value": "选择 Shapefile、GeoJSON、GeoPackage 或栅格文件"
+    },
+    {
+      "name": "gn_catalog_computer_open_project_desc",
+      "value": "打开 .gnproj 工程文件"
+    },
+    {
+      "name": "gn_catalog_computer_save_project_desc",
+      "value": "保存工程状态、图层路径和样式"
+    },
+    {
+      "name": "gn_catalog_recent_projects",
+      "value": "最近工程"
+    },
+    {
+      "name": "gn_catalog_recent_projects_desc",
+      "value": "点击可重新打开工程文件"
+    },
+    {
+      "name": "gn_catalog_favorites_title",
+      "value": "常用入口"
+    },
+    {
+      "name": "gn_catalog_favorites_desc",
+      "value": "常用工具、最近工程和当前图层快捷操作。"
+    },
+    {
+      "name": "gn_catalog_favorites_analysis",
+      "value": "空间分析"
+    },
+    {
+      "name": "gn_catalog_favorites_analysis_desc",
+      "value": "常用叠加、缓冲和几何处理工具"
+    },
+    {
+      "name": "gn_catalog_favorites_presentation",
+      "value": "显示与出图"
+    },
+    {
+      "name": "gn_catalog_favorites_presentation_desc",
+      "value": "图层样式、标注、栅格显示和地图导出"
+    },
+    {
+      "name": "gn_catalog_favorites_layer",
+      "value": "当前图层"
+    },
+    {
+      "name": "gn_catalog_favorites_layer_desc",
+      "value": "围绕当前选中图层执行常用操作"
+    },
+    {
+      "name": "gn_catalog_recent_empty",
+      "value": "暂无最近工程"
+    },
+    {
+      "name": "gn_workbench_data_sources",
+      "value": "数据源"
+    },
+    {
+      "name": "gn_workbench_tool_search",
+      "value": "搜索工具"
+    },
+    {
+      "name": "gn_workbench_clip_desc",
+      "value": "使用一个面图层裁剪当前输入图层。"
+    },
+    {
+      "name": "gn_workbench_buffer_desc",
+      "value": "按道路或边界生成缓冲分析范围。"
+    },
+    {
+      "name": "gn_workbench_repair_desc",
+      "value": "批量修复空几何、自相交和重复节点。"
+    },
+    {
+      "name": "gn_workbench_export_desc",
+      "value": "将当前图层写出为 Shapefile 并加载结果。"
+    },
+    {
+      "name": "gn_workbench_define_projection_desc",
+      "value": "为图层写入 CRS 定义，不改变坐标。"
+    },
+    {
+      "name": "gn_workbench_project_layer_desc",
+      "value": "按目标 CRS 转换几何坐标并输出 Shapefile。"
+    },
+    {
+      "name": "gn_qgis_core_title",
+      "value": "QGIS Core"
+    },
+    {
+      "name": "gn_qgis_core_desc",
+      "value": "ArkTS UI 通过 libgeonestgis.so 调用 QGIS Core 矢量读取、查询和地理处理能力。"
+    },
+    {
+      "name": "gn_processing_browser_title",
+      "value": "Processing 浏览器"
+    },
+    {
+      "name": "gn_processing_browser_desc",
+      "value": "浏览 QGIS Core 当前暴露的处理算法，并从已接入算法打开参数表单。"
+    },
+    {
+      "name": "gn_cap_attribute_table_desc",
+      "value": "通过 queryFeatures/getFeature 展示字段、记录、范围和属性预览。"
+    },
+    {
+      "name": "gn_cap_symbology_desc",
+      "value": "点、线、面单一符号样式已由 ArkUI Canvas 渲染。"
+    },
+    {
+      "name": "gn_cap_labeling_title",
+      "value": "12. 标注系统"
+    },
+    {
+      "name": "gn_cap_labeling_desc",
+      "value": "字段标注、比例尺控制和避让需要标注渲染层。"
+    },
+    {
+      "name": "gn_cap_map_layout_desc",
+      "value": "当前可导出矢量成果，版式、图例、比例尺和 PDF 出图待接入。"
+    },
+    {
+      "name": "gn_tool_identify",
+      "value": "识别"
+    },
+    {
+      "name": "gn_tool_select_multiple",
+      "value": "多选"
+    },
+    {
+      "name": "gn_measure_distance",
+      "value": "距离"
+    },
+    {
+      "name": "gn_measure_area",
+      "value": "面积"
+    },
+    {
+      "name": "gn_measure_angle",
+      "value": "角度"
+    },
+    {
+      "name": "gn_pick_coordinate",
+      "value": "坐标"
+    },
+    {
+      "name": "gn_new_project_title",
+      "value": "新建工程"
+    },
+    {
+      "name": "gn_project_name_label",
+      "value": "工程名称"
+    },
+    {
+      "name": "gn_project_owner_label",
+      "value": "项目单位"
+    },
+    {
+      "name": "gn_project_file_label",
+      "value": "工程文件"
+    },
+    {
+      "name": "gn_project_layer_count_label",
+      "value": "图层统计"
+    },
+    {
+      "name": "gn_project_map_name_label",
+      "value": "地图名称"
+    },
+    {
+      "name": "gn_project_workspace_label",
+      "value": "工作空间"
+    },
+    {
+      "name": "gn_workbench_simplify_desc",
+      "value": "通过 QgsGeometry 按容差简化线和面几何"
+    },
+    {
+      "name": "gn_workbench_dissolve_desc",
+      "value": "通过 QGIS unaryUnion 将图层全部几何融合"
+    },
+    {
+      "name": "gn_workbench_centroid_desc",
+      "value": "通过 QgsGeometry 为每个要素生成质心点"
+    },
+    {
+      "name": "gn_workbench_convex_hull_desc",
+      "value": "合并全部几何后生成整体凸包面"
+    },
+    {
+      "name": "gn_workbench_bounding_boxes_desc",
+      "value": "为每个要素生成轴向外包矩形"
+    },
+    {
+      "name": "gn_workbench_oriented_minimum_bounding_box_desc",
+      "value": "生成带面积、角度、宽高字段的旋转最小外包框"
+    },
+    {
+      "name": "gn_workbench_multipart_to_singleparts_desc",
+      "value": "拆分多部件几何为单部件要素"
+    },
+    {
+      "name": "gn_workbench_extract_by_expression_desc",
+      "value": "通过 QGIS 表达式筛选并输出要素"
+    },
+    {
+      "name": "gn_workbench_difference_desc",
+      "value": "从输入图层擦除叠加图层范围"
+    },
+    {
+      "name": "gn_workbench_symmetrical_difference_desc",
+      "value": "逐要素输出两个图层中互不重叠的部分并保留双方属性"
+    },
+    {
+      "name": "gn_workbench_merge_layers_desc",
+      "value": "合并两个相同几何类型图层"
+    },
+    {
+      "name": "gn_workbench_multi_ring_buffer_desc",
+      "value": "按逗号分隔距离生成多环缓冲区"
+    },
+    {
+      "name": "gn_workbench_extract_by_location_desc",
+      "value": "按空间谓词提取与叠加图层匹配的要素"
+    },
+    {
+      "name": "gn_workbench_spatial_join_summary_desc",
+      "value": "统计输入要素匹配到的连接要素数量"
+    },
+    {
+      "name": "gn_workbench_intersection_desc",
+      "value": "输出两个图层的相交部分并携带双方属性"
+    },
+    {
+      "name": "gn_workbench_nearest_neighbor_desc",
+      "value": "生成输入要素到目标图层最近要素的连线"
+    },
+    {
+      "name": "gn_workbench_voronoi_desc",
+      "value": "根据要素质心生成泰森多边形"
+    },
+    {
+      "name": "gn_cmd_quality_check",
+      "value": "数据质检"
+    },
+    {
+      "name": "gn_workbench_quality_check_desc",
+      "value": "生成拓扑和属性错误点图层"
+    },
+    {
+      "name": "gn_tool_quality_check_desc",
+      "value": "输出错误点图层，检查无效几何、重复点、面重叠、悬挂线和字段缺失"
+    },
+    {
+      "name": "gn_settings_title",
+      "value": "应用设置"
+    },
+    {
+      "name": "gn_settings_appearance",
+      "value": "主题与材质"
+    },
+    {
+      "name": "gn_settings_workspace",
+      "value": "工作台"
+    },
+    {
+      "name": "gn_settings_map_performance",
+      "value": "地图性能"
+    },
+    {
+      "name": "gn_settings_input",
+      "value": "输入与鼠标"
+    },
+    {
+      "name": "gn_settings_accessibility",
+      "value": "辅助功能"
+    },
+    {
+      "name": "gn_expression_workbench_title",
+      "value": "表达式工作台"
+    },
+    {
+      "name": "gn_expression_workbench_desc",
+      "value": "字段计算、条件筛选、按表达式提取和批量赋值集中执行"
+    },
+    {
+      "name": "gn_recovery_saved_status",
+      "value": "已创建自动恢复点"
+    },
+    {
+      "name": "gn_data_view",
+      "value": "数据视图"
+    },
+    {
+      "name": "gn_layout_view",
+      "value": "制图视图"
+    },
+    {
+      "name": "gn_layout_properties",
+      "value": "版面属性"
+    },
+    {
+      "name": "gn_scene_3d_view",
+      "value": "三维场景"
+    },
+    {
+      "name": "gn_scene_2d_view",
+      "value": "返回二维"
+    }
+  ]
+}

@@ -1,141 +1,199 @@
 # GeoNest
 
-GeoNest 是面向 HarmonyOS 的原生桌面 GIS 工作台。项目通过 N-API 将
-ArkTS/ArkUI 界面连接到 C++ GIS 内核，并使用 QGIS Core、GDAL/OGR、
-GEOS 与 PROJ 完成空间数据读取、渲染、编辑和分析。
+GeoNest 是一个面向 HarmonyOS 2-in-1 设备的原生 GIS 工作台。它用 ArkTS/ArkUI 构建交互界面，通过 N-API 连接 C++ GIS 核心，并将 QGIS Core、GDAL/OGR、GEOS、PROJ 与 Qt 6 组合为可在 HarmonyOS 上运行的空间数据处理能力。
 
-项目主页：https://github.com/haohaoai0/GeoNest
+> 当前仓库处于持续开发阶段。主线默认使用 QGIS Core 4.1.0 development snapshot；在生产环境使用前，请先用目标设备和真实数据完成验证。
 
-> 当前代码属于持续开发版本。默认构建启用 QGIS Core 4.1.0 development
-> snapshot，不建议直接用于未经验证的生产数据处理。
+[![HarmonyOS](https://img.shields.io/badge/HarmonyOS-API%2026-0A59F7.svg)](https://developer.huawei.com/consumer/cn/) [![License](https://img.shields.io/badge/license-GPL--2.0--or--later-blue.svg)](LICENSE) [![Version](https://img.shields.io/badge/version-1.0.3-orange.svg)](CHANGELOG.md)
 
-## 功能
+## 目录
 
-- 打开 Shapefile、GeoJSON、GeoPackage、栅格等 GIS 数据；
-- 图层增删、排序、显隐、活动图层和工程持久化；
-- 地图平移、缩放、全图、坐标和比例尺状态；
-- 属性表、要素识别、字段与属性编辑；
-- 单一符号、分类、色带和字段标注；
-- CRS 读取、定义投影和坐标转换；
-- 缓冲区、裁剪、几何修复、简化、融合和质心；
-- 矢量编辑、成果导出以及地图布局入口；
-- HarmonyOS 手机与 2in1 设备界面适配。
+- [项目定位](#项目定位)
+- [功能概览](#功能概览)
+- [技术架构](#技术架构)
+- [环境要求](#环境要求)
+- [快速开始](#快速开始)
+- [构建流程](#构建流程)
+- [仓库结构](#仓库结构)
+- [发布与许可证](#发布与许可证)
+- [贡献指南](#贡献指南)
+- [已知限制](#已知限制)
 
-## 架构
+## 项目定位
+
+GeoNest 试图把桌面 GIS 的数据浏览、编辑、分析和成果交付能力带到 HarmonyOS。项目重点不是提供一个简单的地图查看器，而是建立一条完整的“数据导入 → 地图交互 → 空间处理 → 工程保存 → 成果导出”工作流。
+
+项目主页：[github.com/haohaoai0/GeoNest](https://github.com/haohaoai0/GeoNest)
+
+## 功能概览
+
+### 数据与工程
+
+- 读取 Shapefile、GeoJSON、GeoPackage、KML/KMZ、CSV、XLS/XLSX、TIFF、JPEG、PNG 等常见数据；
+- 支持工程图层管理、图层排序、显隐切换、活动图层和工程持久化；
+- 读取与写出 `.qgs` / `.qgz` 工程，支持便携式工程打包和系统分享导入；
+- 支持 Shapefile 关联文件、拖放导入、批量 URI 导入及文件关联打开。
+
+### 地图浏览与编辑
+
+- 平移、滚轮缩放、全图、比例尺、坐标显示和在线底图；
+- 单选、多选、矩形、套索和多边形选择，并可跨图层进行空间选择；
+- 属性表、字段搜索、要素识别、批量属性赋值和表达式工作台；
+- 点/线/面新增、节点编辑、要素删除、切割、撤销、重做、提交和回滚；
+- 第二地图窗口、数据视图/布局视图切换，以及地图集导出入口。
+
+### 符号、标注与栅格
+
+- 单一符号、分类/分级、表达式规则和色带渲染；
+- 线型、填充、透明度、字段标注、避让及比例尺范围配置；
+- QML 样式导入/导出；
+- 单波段灰度、RGB 合成、拉伸、NoData、透明色带、阴影地形和不透明度设置。
+
+### 空间分析与交付
+
+- 几何修复、缓冲区、裁剪、融合、质心、凸包、最小外包矩形等常用工具；
+- 叠加分析、邻近分析、空间统计、栅格分析、插值、密度、重分类和时空分析；
+- 后台处理任务、进度显示、取消、系统通知、处理历史和结果自动加载；
+- 拓扑规则检查、问题定位、修复预览、提交、回滚和复检；
+- 导出 Shapefile、GeoJSON、GeoPackage、KML、CSV、FlatGeobuf 及常用栅格格式，支持 PDF/PNG/SVG 地图输出。
+
+### HarmonyOS 集成
+
+- 适配 2-in-1 窗口、全屏/分屏/悬浮模式、自定义标题栏和窗口状态保存；
+- 华为账号登录、云文件同步和桌面服务卡片入口；
+- 中文与深色主题资源，以及面向触控和鼠标的交互布局。
+
+## 技术架构
 
 ```text
-ArkTS / ArkUI
-    │
-    ▼
+ArkTS / ArkUI 工作台
+        │
+        ▼
 GisService / GisNativeBridge
-    │ N-API
-    ▼
-libgeonestgis.so
-    │
-    ├── QGIS Core
-    ├── GDAL / OGR
-    ├── GEOS / PROJ
-    └── Qt 6 for OHOS
+        │  N-API
+        ▼
+libgeonestgis.so（C++）
+        │
+        ├── QGIS Core（默认后端）
+        ├── GDAL / OGR
+        ├── GEOS / PROJ
+        └── Qt 6 for OHOS
 ```
 
-- `entry/src/main/ets`：页面、组件、工程模型和 GIS 服务；
-- `native/napi_bridge`：ArkTS 与 C++ 的稳定接口边界；
-- `native/gis_core`：QGIS Core、GDAL 和基础后端实现；
-- `scripts/build_native`：Qt、QGIS 和原生依赖的可重复构建脚本；
-- `native/third_party/*/patches`：HarmonyOS 移植补丁；
-- `scripts/package_corresponding_source.ps1`：GPL 对应源码归档。
+应用层负责页面、状态和交互；N-API 桥接层提供稳定的 ArkTS/C++ 边界；原生层负责数据源、渲染、投影、空间运算和后台任务。构建配置也保留了 GDAL/OGR fallback，便于在 QGIS Core 依赖尚未就绪时进行基础链路验证。
 
-## 开发环境
+## 环境要求
 
 - Windows 10/11；
-- DevEco Studio 与 HarmonyOS SDK API 26；
-- CMake、Ninja、Clang/LLVM（随 DevEco SDK 提供）；
+- DevEco Studio 及 HarmonyOS SDK API 26（target SDK 6.1.1，compatible SDK 6.1.0）；
+- DevEco SDK 自带的 Clang/LLVM、CMake 和 Ninja；
 - PowerShell 5.1 或更高版本；
-- Qt 6.8.3 源码；
-- 本仓库脚本所列的 QGIS 与 OSGeo 依赖源码。
+- Qt 6.8.3 源码及对应的 host tools；
+- QGIS Core、GDAL/OGR、PROJ、GEOS、SQLite、EXPAT、LibZip、Protobuf、ZLIB 等依赖源码或已构建 stage。
 
-## 配置签名
-
-复制示例配置：
+## 快速开始
 
 ```powershell
+git clone https://github.com/haohaoai0/GeoNest.git
+cd GeoNest
 Copy-Item .\build-profile.example.json5 .\build-profile.json5
 ```
 
-然后在 DevEco Studio 中配置本机调试或发布签名。真实
-`build-profile.json5` 被忽略，因为它包含加密签名口令和本机证书路径。
+随后在 DevEco Studio 中配置本机调试签名，并根据本机依赖位置修改 `entry/build-profile.json5` 中的 `QGIS_PREFIX` 和 `QT6_PREFIX`。签名文件、密码、证书路径和本机 build profile 均不应提交到 Git。
 
-发布构建从以下环境变量读取签名材料：
+如果只需要了解工程结构，可以先打开项目；如果要生成可运行 HAP，则必须先完成原生依赖 stage。依赖构建顺序、参数和常见问题见 [`scripts/build_native/README.md`](scripts/build_native/README.md)。
 
-- `GEONEST_SIGNING_STORE`
-- `GEONEST_SIGNING_PROFILE`
-- `GEONEST_SIGNING_CERTIFICATE`
-- `GEONEST_SIGNING_ALIAS`
-- `GEONEST_SIGNING_PASSWORD`
+## 构建流程
 
-私钥、口令、证书私有材料和商店凭据不会进入源码发布。
+### 1. 构建原生依赖
 
-## 构建
+推荐顺序如下：
 
-原生依赖的建议顺序见
-[`scripts/build_native/README.md`](scripts/build_native/README.md)。准备好
-`native/third_party/qgis/stage/<abi>` 和
-`native/third_party/qt6/stage/<abi>` 后，更新
-`entry/build-profile.json5` 中的 `QGIS_PREFIX` 与 `QT6_PREFIX`，然后执行：
+```text
+zlib → sqlite → EXPAT → FreeXL → PROJ → GEOS → GDAL/OGR
+→ Qt 6 for OHOS → QGIS Core → GeoNest native bridge
+```
+
+依赖脚本位于 [`scripts/build_native`](scripts/build_native)。大型源码树、构建缓存和 stage 目录默认被 `.gitignore` 排除。
+
+### 2. 构建调试 HAP
 
 ```powershell
 .\scripts\build_entry_hap.ps1
 ```
 
-完整签名发布：
+脚本会调用 Hvigor 和 CMake，生成 `entry/build/.../*.hap`。在已连接设备上安装时，可使用 DevEco Studio 或对应版本的 `hdc` 工具完成部署。
+
+### 3. 构建签名发布包
 
 ```powershell
 .\scripts\build_release.ps1
 ```
 
-发布脚本会：
+发布脚本会校验签名、打包许可证和第三方声明，并生成对应源码归档与 SHA-256 校验文件。发布签名材料从以下环境变量读取：
 
-1. 构建并验证签名 APP/HAP；
-2. 将 GPL 和第三方许可证完整文本写入 HAP；
-3. 在发布目录放置许可证、版权与源码说明；
-4. 强制生成 GeoNest、修改后的 QGIS、修改后的 Qt 和原生依赖源码包；
-5. 生成二进制与源码 SHA-256 校验文件。
+```text
+GEONEST_SIGNING_STORE
+GEONEST_SIGNING_PROFILE
+GEONEST_SIGNING_CERTIFICATE
+GEONEST_SIGNING_ALIAS
+GEONEST_SIGNING_PASSWORD
+```
 
-缺少任一对应源码时，发布过程会直接失败。
+不要把 `.p12`、`.p7b`、`.cer`、密码、用户数据、设备日志或本地构建目录提交到仓库。发布 APP/HAP 和对应源码包应通过 GitHub Releases 分发，而不是直接放进 Git 历史。
 
-## 单独生成对应源码
+### 4. 生成对应源码归档
 
 ```powershell
 .\scripts\package_corresponding_source.ps1 `
   -OutputDirectory .\output\source `
-  -VersionName 1.0.0
+  -VersionName 1.0.3
 ```
 
-大型 QGIS/Qt 工作树和构建缓存不直接提交到主 Git 历史。每个二进制版本
-必须同时发布脚本生成的精确源码归档；仅链接到未固定的上游分支不满足本
-项目的发布规则。
+每个包含 GPL/LGPL 组件的二进制版本，都应同时提供精确的 GeoNest、QGIS、Qt 和其他修改后依赖源码归档。详细说明见 [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md) 和 [`SOURCE_OFFER.txt`](SOURCE_OFFER.txt)。
 
-对应源码归档发布于：
-https://github.com/haohaoai0/GeoNest/releases
+## 仓库结构
 
-## 开源许可
+```text
+AppScope/                         应用级资源与图标
+common/                           公共 ArkTS 模块与样式
+features/workbench/               工作台功能模块
+entry/src/main/ets/               页面、组件、模型和 GIS 服务
+entry/src/main/cpp/               HAP CMake 与原生模块入口
+native/gis_core/                  QGIS/GDAL/空间分析实现
+native/napi_bridge/               ArkTS ↔ C++ N-API 桥接
+native/third_party/               依赖补丁和构建元数据
+scripts/                          构建、打包和发布脚本
+docs/                             移植计划、设计说明和未来 API 记录
+design/                           图标与视觉设计资源
+CHANGELOG.md                      版本变更记录
+```
 
-GeoNest 按 [GNU GPL-2.0-or-later](LICENSE) 发布，完整 GPL v2 文本见
-[COPYING](COPYING)。
+## 发布与许可证
 
-第三方组件、QGIS Qt 链接例外、Qt/GEOS LGPL 要求及对应源码说明见：
+GeoNest 以 [GNU GPL-2.0-or-later](LICENSE) 发布，GPL v2 完整文本见 [COPYING](COPYING)。QGIS、Qt、GDAL、GEOS、PROJ 及其他组件的许可证、链接例外、修改说明和对应源码义务见：
 
-- [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)
-- [SOURCE_OFFER.txt](SOURCE_OFFER.txt)
+- [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md)
+- [`SOURCE_OFFER.txt`](SOURCE_OFFER.txt)
+- [`scripts/package_corresponding_source.ps1`](scripts/package_corresponding_source.ps1)
 
-接收者可以在 GPL 条款下使用、研究、修改和再分发 GeoNest。软件按
-“原样”提供，不附带适销性或特定用途适用性的担保。
+版本历史见 [`CHANGELOG.md`](CHANGELOG.md)，公开构建和对应源码归档见 [GitHub Releases](https://github.com/haohaoai0/GeoNest/releases)。软件按“原样”提供，不附带适销性或特定用途适用性的担保。
 
-## 贡献
+## 贡献指南
 
-提交代码时请：
+欢迎提交 Issue、改进建议和 Pull Request。提交前请：
 
-- 遵守 ArkTS 静态类型和 HarmonyOS API 约束；
-- 保留现有版权与许可证声明；
-- 对上游 QGIS、Qt 或其他第三方文件的修改注明修改内容和日期；
-- 不提交签名材料、令牌、用户数据、构建缓存或设备日志。
+1. 使用 ArkTS 支持的静态类型写法，并遵守 HarmonyOS API 的权限和 API Level 要求；
+2. 对 ArkTS、C++、CMake 和 PowerShell 改动分别完成最小可行构建或静态检查；
+3. 为用户可见的中文文案和颜色补齐 base/dark 资源；
+4. 对上游 QGIS、Qt 或其他第三方代码的修改注明来源、内容和日期；
+5. 不提交签名材料、令牌、用户数据、设备日志、构建缓存和大型依赖工作树。
+
+## 已知限制
+
+- 主线默认后端依赖 QGIS Core 4.1.0 development snapshot，完整构建链较重；
+- 云同步、华为账号、桌面卡片和协同能力依赖目标设备的系统服务与登录状态；
+- 当前发布定位为 2-in-1 设备，手机版布局仍需单独验证；
+- 不同 HarmonyOS SDK、设备 ABI 和 Qt/QGIS 构建选项可能导致行为差异，请以目标设备实测结果为准。
+
+如遇构建失败，建议先确认 SDK/API 版本、`QGIS_PREFIX`/`QT6_PREFIX`、ABI stage 是否完整，再查看 `scripts/build_native/README.md` 和构建日志。

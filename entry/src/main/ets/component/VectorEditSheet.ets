@@ -1,15 +1,26 @@
 import { HdsNavigation, HdsNavigationTitleMode, IconStyleMode, ScrollEffectType } from '@kit.UIDesignKit';
 import { hdsMaterial } from '@hms.hds.hdsMaterial';
-import { MaterialStyle } from '../utils/MaterialStyle';
+import { MaterialStyle } from '@geonest/common';
 import { getGisService, GisLoadedLayer } from '../gis/GisService';
 import { GisAttributeValue, GisFeatureSummary, GisFieldInfo, GisOperationResult } from '../model/GeoNestModels';
+import { common } from '@kit.AbilityKit';
+import { SnappingConfiguration } from '../model/TopologyModels';
+import { TopologyRuleStore } from '../utils/TopologyRuleStore';
 import {
   MAP_TOOL_EDIT_ADD_LINE,
   MAP_TOOL_EDIT_ADD_POINT,
   MAP_TOOL_EDIT_ADD_POLYGON,
   MAP_TOOL_EDIT_DELETE_NODE,
-  MAP_TOOL_EDIT_MOVE_NODE
-} from './GisMapCanvas';
+  MAP_TOOL_EDIT_MOVE_NODE,
+  MAP_TOOL_SELECT_BOX,
+  MAP_TOOL_SELECT_LASSO,
+  MAP_TOOL_SELECT_POLYGON,
+  MAP_TOOL_EDIT_CUT_SKETCH,
+  MAP_TOOL_EDIT_TRACE,
+  MAP_TOOL_EDIT_PARALLEL,
+  MAP_TOOL_EDIT_PERPENDICULAR,
+  MAP_TOOL_EDIT_ORTHOGONAL
+} from '@geonest/common';
 
 export const VECTOR_EDIT_COMMAND_COPY: number = 1;
 export const VECTOR_EDIT_COMMAND_UNDO: number = 2;
@@ -18,6 +29,9 @@ export const VECTOR_EDIT_COMMAND_CUT: number = 4;
 export const VECTOR_EDIT_COMMAND_MERGE: number = 5;
 export const VECTOR_EDIT_COMMAND_SNAP: number = 6;
 export const VECTOR_EDIT_COMMAND_DELETE_FEATURE: number = 7;
+export const VECTOR_EDIT_COMMAND_BEGIN_SESSION: number = 8;
+export const VECTOR_EDIT_COMMAND_COMMIT_SESSION: number = 9;
+export const VECTOR_EDIT_COMMAND_ROLLBACK_SESSION: number = 10;
 
 @Component
 export struct VectorEditSheet {
@@ -29,10 +43,38 @@ export struct VectorEditSheet {
   onEditCommand: (command: number) => void = () => {};
   @State private snapEnabled: boolean = true;
   @State private snapTolerance: string = '8';
+  @State private snapVertexPriority: number = 1;
+  @State private snapSegmentPriority: number = 2;
+  @State private snapEndpointPriority: number = 0;
+  @State private snapCrossLayer: boolean = true;
+  @State private snapSpatialIndex: boolean = true;
   @State private uiRevision: number = 0;
 
   onTrigger(): void {
+    let context: common.UIAbilityContext = getContext(this) as common.UIAbilityContext;
+    let config: SnappingConfiguration = new TopologyRuleStore(context).loadSnappingConfiguration();
+    this.snapEnabled = config.enabled;
+    this.snapTolerance = config.pixelTolerance.toString();
+    this.snapVertexPriority = config.vertexPriority;
+    this.snapSegmentPriority = config.segmentPriority;
+    this.snapEndpointPriority = config.endpointPriority;
+    this.snapCrossLayer = config.crossLayer;
+    this.snapSpatialIndex = config.spatialIndexEnabled;
     this.isShow = true;
+  }
+
+  private saveSnappingConfiguration(): void {
+    let config: SnappingConfiguration = new SnappingConfiguration();
+    let pixelTolerance: number = Number(this.snapTolerance);
+    config.enabled = this.snapEnabled;
+    config.pixelTolerance = pixelTolerance === pixelTolerance && pixelTolerance > 0 ? pixelTolerance : 8;
+    config.vertexPriority = this.snapVertexPriority;
+    config.segmentPriority = this.snapSegmentPriority;
+    config.endpointPriority = this.snapEndpointPriority;
+    config.crossLayer = this.snapCrossLayer;
+    config.spatialIndexEnabled = this.snapSpatialIndex;
+    let context: common.UIAbilityContext = getContext(this) as common.UIAbilityContext;
+    new TopologyRuleStore(context).saveSnappingConfiguration(config);
   }
 
   private refreshDialogUi(): void {
@@ -71,7 +113,7 @@ export struct VectorEditSheet {
   }
 
   @Builder
-  commandButton(label: string, command: number) {
+  commandButton(label: ResourceStr, command: number) {
     Button(label, { type: ButtonType.Capsule, stateEffect: true })
       .height(30)
       .fontSize(12)
@@ -100,7 +142,7 @@ export struct VectorEditSheet {
                 .fontWeight(FontWeight.Bold)
                 .fontColor($r('app.color.gn_text_primary'))
                 .width('100%')
-              Text('新增点/线/面、移动节点、删除节点、切割、合并、吸附均通过 QGIS provider 写回。')
+              Text($r('app.string.gn_edit_session_description'))
                 .fontSize(12)
                 .fontColor($r('app.color.gn_text_muted'))
                 .width('100%')
@@ -111,6 +153,12 @@ export struct VectorEditSheet {
             .border({ width: 1, color: $r('app.color.gn_line') })
 
             Row({ space: 8 }) {
+              this.commandButton($r('app.string.gn_edit_session_begin'), VECTOR_EDIT_COMMAND_BEGIN_SESSION)
+              this.commandButton($r('app.string.gn_edit_session_commit'), VECTOR_EDIT_COMMAND_COMMIT_SESSION)
+              this.commandButton($r('app.string.gn_edit_session_rollback'), VECTOR_EDIT_COMMAND_ROLLBACK_SESSION)
+            }
+
+            Row({ space: 8 }) {
               this.toolButton('新增点', $r('sys.symbol.location_up'), MAP_TOOL_EDIT_ADD_POINT)
               this.toolButton('新增线', $r('sys.symbol.road_lanes_badge_minus'), MAP_TOOL_EDIT_ADD_LINE)
               this.toolButton('新增面', $r('sys.symbol.layer'), MAP_TOOL_EDIT_ADD_POLYGON)
@@ -119,6 +167,23 @@ export struct VectorEditSheet {
               this.toolButton('移动节点', $r('sys.symbol.hand_tap'), MAP_TOOL_EDIT_MOVE_NODE)
               this.toolButton('删除节点', $r('sys.symbol.trash'), MAP_TOOL_EDIT_DELETE_NODE)
               this.commandButton('复制所选要素', VECTOR_EDIT_COMMAND_COPY)
+            }
+            Row({ space: 8 }) {
+              this.toolButton('框选', $r('sys.symbol.square_dashed'), MAP_TOOL_SELECT_BOX)
+              this.toolButton('套索', $r('sys.symbol.point_bottomleft_forward_to_point_topright_scurvepath'),
+                MAP_TOOL_SELECT_LASSO)
+              this.toolButton('多边形选择', $r('sys.symbol.square'), MAP_TOOL_SELECT_POLYGON)
+            }
+            Row({ space: 8 }) {
+              this.toolButton('草图切割', $r('sys.symbol.square_and_cut'), MAP_TOOL_EDIT_CUT_SKETCH)
+              this.toolButton('追踪', $r('sys.symbol.point_bottomleft_forward_to_point_topright_scurvepath'),
+                MAP_TOOL_EDIT_TRACE)
+              this.toolButton('平行线', $r('sys.symbol.equals'), MAP_TOOL_EDIT_PARALLEL)
+            }
+            Row({ space: 8 }) {
+              this.toolButton('垂线', $r('sys.symbol.square_slash'), MAP_TOOL_EDIT_PERPENDICULAR)
+              this.toolButton('正交约束', $r('sys.symbol.square'), MAP_TOOL_EDIT_ORTHOGONAL)
+              Blank().layoutWeight(1)
             }
 
             Column({ space: 8 }) {
@@ -140,6 +205,7 @@ export struct VectorEditSheet {
                   .onClick(() => {
                     this.snapEnabled = !this.snapEnabled;
                     this.refreshDialogUi();
+                    this.saveSnappingConfiguration();
                     this.onEditCommand(VECTOR_EDIT_COMMAND_SNAP);
                   })
                 TextInput({ text: this.snapTolerance, placeholder: '吸附像素' })
@@ -149,11 +215,44 @@ export struct VectorEditSheet {
                   .width(120)
                   .onChange((value: string) => {
                     this.snapTolerance = value;
+                    this.saveSnappingConfiguration();
                   })
                 Text('切割、合并、吸附会直接调用 QGIS 几何编辑接口并刷新图层。')
                   .fontSize(12)
                   .fontColor($r('app.color.gn_text_muted'))
                   .layoutWeight(1)
+              }
+              Row({ space: 8 }) {
+                Text('端点优先 ' + this.snapEndpointPriority.toString())
+                  .fontSize(11)
+                  .onClick(() => {
+                    this.snapEndpointPriority = (this.snapEndpointPriority + 1) % 3;
+                    this.saveSnappingConfiguration();
+                  })
+                Text('顶点优先 ' + this.snapVertexPriority.toString())
+                  .fontSize(11)
+                  .onClick(() => {
+                    this.snapVertexPriority = (this.snapVertexPriority + 1) % 3;
+                    this.saveSnappingConfiguration();
+                  })
+                Text('线段优先 ' + this.snapSegmentPriority.toString())
+                  .fontSize(11)
+                  .onClick(() => {
+                    this.snapSegmentPriority = (this.snapSegmentPriority + 1) % 3;
+                    this.saveSnappingConfiguration();
+                  })
+                Text(this.snapCrossLayer ? '跨图层：开' : '跨图层：关')
+                  .fontSize(11)
+                  .onClick(() => {
+                    this.snapCrossLayer = !this.snapCrossLayer;
+                    this.saveSnappingConfiguration();
+                  })
+                Text(this.snapSpatialIndex ? '空间索引：开' : '空间索引：关')
+                  .fontSize(11)
+                  .onClick(() => {
+                    this.snapSpatialIndex = !this.snapSpatialIndex;
+                    this.saveSnappingConfiguration();
+                  })
               }
             }
             .padding(14)
@@ -197,12 +296,13 @@ export struct VectorEditSheet {
   build() {
     Row().width(0).height(0)
       .bindSheet($$this.isShow, this.sheetContent(), {
-        detents: [SheetSize.LARGE],
+        width: 900,
+        height: 690,
+        detents: [690],
         preferType: SheetType.CENTER,
         dragBar: false,
         backgroundColor: Color.Transparent,
-        blurStyle: BlurStyle.Thin,
-        systemMaterial: MaterialStyle.nativeMaterial(this.materialEnabled),
+        blurStyle: BlurStyle.Regular,
         showClose: false,
         onDisappear: (): void => { this.isShow = false; }
       })
@@ -216,6 +316,8 @@ export struct AttributeEditSheet {
   @StorageLink('gnMaterialEnabled') materialEnabled: boolean = true;
   private scroller: Scroller = new Scroller();
   onAttributeEdited: () => void = () => {};
+  onEditSessionCommand: (command: number) => void = () => {};
+  onEnsureEditSession: () => boolean = () => false;
   @State private featureId: string = '';
   @State private fieldName: string = '';
   @State private fieldValue: string = '';
@@ -271,25 +373,40 @@ export struct AttributeEditSheet {
   }
 
   private updateSingleValue(): void {
+    if (!this.onEnsureEditSession()) {
+      return;
+    }
     this.applyResult(getGisService().updateFeatureAttribute(getGisService().getActiveLayerIndex(),
       this.activeFeatureId(), this.activeFieldName(), this.fieldValue));
   }
 
   private batchAssign(): void {
+    if (!this.onEnsureEditSession()) {
+      return;
+    }
     this.applyResult(getGisService().batchAssignAttribute(getGisService().getActiveLayerIndex(),
       this.activeFieldName(), this.batchFilter, this.fieldValue));
   }
 
   private addField(): void {
+    if (!this.onEnsureEditSession()) {
+      return;
+    }
     this.applyResult(getGisService().addLayerField(getGisService().getActiveLayerIndex(),
       this.newFieldName, this.newFieldType));
   }
 
   private deleteField(): void {
+    if (!this.onEnsureEditSession()) {
+      return;
+    }
     this.applyResult(getGisService().deleteLayerField(getGisService().getActiveLayerIndex(), this.activeFieldName()));
   }
 
   private calculateField(): void {
+    if (!this.onEnsureEditSession()) {
+      return;
+    }
     this.applyResult(getGisService().calculateField(getGisService().getActiveLayerIndex(), this.activeFieldName(),
       this.calculatorMode, this.fieldValue));
   }
@@ -375,6 +492,18 @@ export struct AttributeEditSheet {
       .fontSize(11)
       .fontColor($r('app.color.gn_text_muted'))
       .width('100%')
+  }
+
+  @Builder
+  sessionButton(label: ResourceStr, command: number) {
+    Button(label, { type: ButtonType.Capsule, stateEffect: true })
+      .height(30)
+      .fontSize(12)
+      .fontColor($r('app.color.gn_blue_800'))
+      .backgroundColor($r('app.color.gn_blue_100'))
+      .onClick(() => {
+        this.onEditSessionCommand(command);
+      })
   }
 
   @Builder
@@ -582,6 +711,15 @@ export struct AttributeEditSheet {
                 .fontSize(18)
                 .fontWeight(FontWeight.Bold)
                 .fontColor($r('app.color.gn_text_primary'))
+              Text($r('app.string.gn_edit_session_description'))
+                .fontSize(11)
+                .fontColor($r('app.color.gn_text_muted'))
+                .width('100%')
+              Row({ space: 8 }) {
+                this.sessionButton($r('app.string.gn_edit_session_begin'), VECTOR_EDIT_COMMAND_BEGIN_SESSION)
+                this.sessionButton($r('app.string.gn_edit_session_commit'), VECTOR_EDIT_COMMAND_COMMIT_SESSION)
+                this.sessionButton($r('app.string.gn_edit_session_rollback'), VECTOR_EDIT_COMMAND_ROLLBACK_SESSION)
+              }
               Flex({ wrap: FlexWrap.Wrap }) {
                 ForEach((this.getActiveLayer() as GisLoadedLayer).info.fields, (field: GisFieldInfo) => {
                   this.fieldChip(field)
@@ -641,12 +779,13 @@ export struct AttributeEditSheet {
   build() {
     Row().width(0).height(0)
       .bindSheet($$this.isShow, this.sheetContent(), {
-        detents: [SheetSize.LARGE],
+        width: 900,
+        height: 690,
+        detents: [690],
         preferType: SheetType.CENTER,
         dragBar: false,
         backgroundColor: Color.Transparent,
-        blurStyle: BlurStyle.Thin,
-        systemMaterial: MaterialStyle.nativeMaterial(this.materialEnabled),
+        blurStyle: BlurStyle.Regular,
         showClose: false,
         onDisappear: (): void => { this.isShow = false; }
       })

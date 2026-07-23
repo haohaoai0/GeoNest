@@ -1,0 +1,40 @@
+export const MAP_COMMAND_NONE: number = 0;
+export const MAP_COMMAND_ZOOM_IN: number = 1;
+export const MAP_COMMAND_ZOOM_OUT: number = 2;
+export const MAP_COMMAND_FULL_EXTENT: number = 3;
+export const MAP_COMMAND_ZOOM_SELECTED: number = 4;
+export const MAP_COMMAND_ZOOM_PRIMARY: number = 5;
+
+export const MAP_TOOL_IDENTIFY: number = 0;
+export const MAP_TOOL_MEASURE_DISTANCE: number = 1;
+export const MAP_TOOL_MEASURE_AREA: number = 2;
+export const MAP_TOOL_MEASURE_ANGLE: number = 3;
+export const MAP_TOOL_PICK_COORDINATE: number = 4;
+export const MAP_TOOL_SELECT_MULTIPLE: number = 5;
+export const MAP_TOOL_SELECT_BOX: number = 6;
+export const MAP_TOOL_SELECT_LASSO: number = 7;
+export const MAP_TOOL_SELECT_POLYGON: number = 8;
+export const MAP_TOOL_EDIT_ADD_POINT: number = 10;
+export const MAP_TOOL_EDIT_ADD_LINE: number = 11;
+export const MAP_TOOL_EDIT_ADD_POLYGON: number = 12;
+export const MAP_TOOL_EDIT_MOVE_NODE: number = 13;
+export const MAP_TOOL_EDIT_DELETE_NODE: number = 14;
+export const MAP_TOOL_EDIT_CUT_SKETCH: number = 15;
+export const MAP_TOOL_EDIT_TRACE: number = 16;
+export const MAP_TOOL_EDIT_PARALLEL: number = 17;
+export const MAP_TOOL_EDIT_PERPENDICULAR: number = 18;
+export const MAP_TOOL_EDIT_ORTHOGONAL: number = 19;
+
+export const BASEMAP_VECTOR: number = 0;
+export const BASEMAP_ONLINE_STANDARD: number = 1;
+export const BASEMAP_TERRAIN: number = 2;
+export const BASEMAP_IMAGERY: number = 3;
+export const BASEMAP_HARMONY_STANDARD: number = 4;
+export const BASEMAP_HARMONY_TERRAIN: number = 5;
+export const BASEMAP_HARMONY_IMAGERY: number = 6;
+export const BASEMAP_DATUM_AUTO: number = 0;
+export const BASEMAP_DATUM_WGS84: number = 1;
+export const BASEMAP_DATUM_GCJ02: number = 2;
+
+export const FEATURE_SELECTION_REPLACE: number = 0;
+export const FEATURE_SELECTION_TOGGLE: number = 1;

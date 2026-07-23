@@ -1,5 +1,5 @@
 import { HdsNavigation, HdsNavigationTitleMode, IconStyleMode } from '@kit.UIDesignKit';
-import { MaterialStyle } from '../utils/MaterialStyle';
+import { MaterialStyle } from '@geonest/common';
 
 const CRS_CATEGORY_GEOGRAPHIC: number = 0;
 const CRS_CATEGORY_CHINA_PROJECTED: number = 1;
@@ -309,13 +309,12 @@ export struct CoordinateSystemPicker {
       .width(0)
       .height(0)
       .bindSheet($$this.isShow, this.sheetContent(), {
-        width: 820,
-        height: 640,
-        detents: [640],
+        width: 900,
+        height: 690,
+        detents: [690],
         preferType: SheetType.CENTER,
         dragBar: false,
         backgroundColor: Color.Transparent,
-        systemMaterial: MaterialStyle.nativeMaterial(this.materialEnabled),
         showClose: false,
         onDisappear: (): void => {
           this.isShow = false;

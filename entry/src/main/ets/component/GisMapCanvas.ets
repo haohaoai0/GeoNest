@@ -1,17 +1,16 @@
 import {
   getGisService,
   GisLoadedLayer,
-  qgisCategoryBucket,
-  qgisCategoryTotal,
-  qgisGraduatedBucket,
   qgisRampColor
 } from '../gis/GisService';
 import {
   GisFeatureSummary,
+  GisFeaturePage,
   GisCoordinate,
   GisEnvelope,
   GisGeometryPayload,
   GisAttributeValue,
+  GisGeoProcessResult,
   GisCoordinateTransformResult,
   GisEnvelopeTransformResult
 } from '../model/GeoNestModels';
@@ -19,8 +18,48 @@ import { AsyncCallback, BusinessError } from '@ohos.base';
 import { webview } from '@kit.ArkWeb';
 import { MapComponent, map, mapCommon } from '@kit.MapKit';
 import hilog from '@ohos.hilog';
+import {
+  BASEMAP_DATUM_AUTO,
+  BASEMAP_DATUM_GCJ02,
+  BASEMAP_DATUM_WGS84,
+  BASEMAP_HARMONY_IMAGERY,
+  BASEMAP_HARMONY_STANDARD,
+  BASEMAP_HARMONY_TERRAIN,
+  BASEMAP_IMAGERY,
+  BASEMAP_ONLINE_STANDARD,
+  BASEMAP_TERRAIN,
+  BASEMAP_VECTOR,
+  FEATURE_SELECTION_REPLACE,
+  FEATURE_SELECTION_TOGGLE,
+  MAP_COMMAND_FULL_EXTENT,
+  MAP_COMMAND_NONE,
+  MAP_COMMAND_ZOOM_IN,
+  MAP_COMMAND_ZOOM_OUT,
+  MAP_COMMAND_ZOOM_PRIMARY,
+  MAP_COMMAND_ZOOM_SELECTED,
+  MAP_TOOL_EDIT_ADD_LINE,
+  MAP_TOOL_EDIT_ADD_POINT,
+  MAP_TOOL_EDIT_ADD_POLYGON,
+  MAP_TOOL_EDIT_CUT_SKETCH,
+  MAP_TOOL_EDIT_DELETE_NODE,
+  MAP_TOOL_EDIT_MOVE_NODE,
+  MAP_TOOL_EDIT_ORTHOGONAL,
+  MAP_TOOL_EDIT_PARALLEL,
+  MAP_TOOL_EDIT_PERPENDICULAR,
+  MAP_TOOL_EDIT_TRACE,
+  MAP_TOOL_IDENTIFY,
+  MAP_TOOL_MEASURE_ANGLE,
+  MAP_TOOL_MEASURE_AREA,
+  MAP_TOOL_MEASURE_DISTANCE,
+  MAP_TOOL_PICK_COORDINATE,
+  MAP_TOOL_SELECT_BOX,
+  MAP_TOOL_SELECT_LASSO,
+  MAP_TOOL_SELECT_MULTIPLE,
+  MAP_TOOL_SELECT_POLYGON
+} from '@geonest/common';
 
 // Geometry type constants (must match native)
+const GEOM_UNKNOWN: number = 0;
 const GEOM_POINT: number = 1;
 const GEOM_LINESTRING: number = 2;
 const GEOM_POLYGON: number = 3;
@@ -29,37 +68,16 @@ const UNIT_ANGULAR: number = 1;
 const UNIT_LINEAR: number = 2;
 const TAG: number = 0xFF00;
 const DOMAIN: string = 'GeoNest';
-export const MAP_COMMAND_NONE: number = 0;
-export const MAP_COMMAND_ZOOM_IN: number = 1;
-export const MAP_COMMAND_ZOOM_OUT: number = 2;
-export const MAP_COMMAND_FULL_EXTENT: number = 3;
-export const MAP_COMMAND_ZOOM_SELECTED: number = 4;
-export const MAP_TOOL_IDENTIFY: number = 0;
-export const MAP_TOOL_MEASURE_DISTANCE: number = 1;
-export const MAP_TOOL_MEASURE_AREA: number = 2;
-export const MAP_TOOL_MEASURE_ANGLE: number = 3;
-export const MAP_TOOL_PICK_COORDINATE: number = 4;
-export const MAP_TOOL_EDIT_ADD_POINT: number = 10;
-export const MAP_TOOL_EDIT_ADD_LINE: number = 11;
-export const MAP_TOOL_EDIT_ADD_POLYGON: number = 12;
-export const MAP_TOOL_EDIT_MOVE_NODE: number = 13;
-export const MAP_TOOL_EDIT_DELETE_NODE: number = 14;
-export const BASEMAP_VECTOR: number = 0;
-export const BASEMAP_ONLINE_STANDARD: number = 1;
-export const BASEMAP_TERRAIN: number = 2;
-export const BASEMAP_IMAGERY: number = 3;
-export const BASEMAP_HARMONY_STANDARD: number = 4;
-export const BASEMAP_HARMONY_TERRAIN: number = 5;
-export const BASEMAP_HARMONY_IMAGERY: number = 6;
-export const BASEMAP_DATUM_AUTO: number = 0;
-export const BASEMAP_DATUM_WGS84: number = 1;
-export const BASEMAP_DATUM_GCJ02: number = 2;
 const WEB_MERCATOR_METERS_PER_PIXEL_Z0: number = 156543.03392804097;
 const WEB_MERCATOR_MAX_LATITUDE: number = 85.0511287798066;
 const WEB_MERCATOR_RADIUS_METERS: number = 6378137.0;
 const EARTH_RADIUS_METERS: number = 6371008.8;
 const SCREEN_PIXEL_SIZE_METERS: number = 0.0002645833333;
 const HARMONY_MAP_LOAD_TIMEOUT_MS: number = 8000;
+const NATIVE_VECTOR_RENDER_THRESHOLD: number = 400;
+const MAX_CANVAS_LABELS_PER_LAYER: number = 120;
+const VIEWPORT_INTERACTION_LIMIT: number = 1200;
+const POINT_QUERY_LIMIT: number = 128;
 
 class EditNodeHit {
   found: boolean = false;
@@ -74,6 +92,58 @@ class EditNodeHit {
     this.featureId = featureId;
     this.partIndex = partIndex;
     this.pointIndex = pointIndex;
+  }
+}
+
+class LayerRenderStats {
+  categoryValues: string[] = [];
+  hasNumericRange: boolean = false;
+  minValue: number = 0.0;
+  maxValue: number = 0.0;
+
+  categoryBucket(value: string): number {
+    for (let i = 0; i < this.categoryValues.length; i++) {
+      if (this.categoryValues[i] === value) {
+        return i;
+      }
+    }
+    return 0;
+  }
+
+  categoryTotal(): number {
+    if (this.categoryValues.length < 1) {
+      return 1;
+    }
+    return this.categoryValues.length;
+  }
+
+  graduatedBucket(value: number): number {
+    if (!this.hasNumericRange || Math.abs(this.maxValue - this.minValue) < 0.0000001) {
+      return 0;
+    }
+    let ratio = (value - this.minValue) / (this.maxValue - this.minValue);
+    let bucket = Math.floor(ratio * 5.0);
+    if (bucket < 0) {
+      return 0;
+    }
+    if (bucket > 4) {
+      return 4;
+    }
+    return bucket;
+  }
+}
+
+class ViewportFeatureCache {
+  layerId: string = '';
+  envelope: GisEnvelope = new GisEnvelope(0, 0, 0, 0);
+  features: GisFeatureSummary[] = [];
+  hasMore: boolean = false;
+
+  constructor(layerId: string, envelope: GisEnvelope, features: GisFeatureSummary[], hasMore: boolean) {
+    this.layerId = layerId;
+    this.envelope = envelope;
+    this.features = features;
+    this.hasMore = hasMore;
   }
 }
 
@@ -205,6 +275,7 @@ export struct GisMapCanvas {
   @Prop @Watch('onBasemapModeChanged') basemapMode: number = BASEMAP_VECTOR;
   @Prop @Watch('onBasemapDatumModeChanged') basemapDatumMode: number = BASEMAP_DATUM_AUTO;
   @Prop selectedFeatureId: string = '';
+  @Prop selectedFeatureIds: string[] = [];
   @Prop selectedFeatureLayerIndex: number = -1;
   @Prop @Watch('onDataChanged') renderKey: number = 0;
   @Prop mapCommand: number = MAP_COMMAND_NONE;
@@ -216,13 +287,24 @@ export struct GisMapCanvas {
   @Prop cacheStrategy: number = 1;
   @Prop progressiveLoading: boolean = true;
   @Prop pointerSmoothing: boolean = true;
+  @Prop @Watch('onExternalViewportChanged') externalViewportKey: number = 0;
+  @Prop externalViewportCenterX: number = 0.5;
+  @Prop externalViewportCenterY: number = 0.5;
+  @Prop externalViewportScale: number = 100.0;
+  @Prop crossLayerSelection: boolean = true;
   @State viewport: MapViewport = new MapViewport();
   private canvasContext: CanvasRenderingContext2D = new CanvasRenderingContext2D(new RenderingContextSettings(true));
-  onFeatureSelected: (featureId: string, layerIndex: number) => void = () => {};
+  onFeatureSelected: (featureId: string, layerIndex: number, operation: number) => void =
+    (_featureId: string, _layerIndex: number, _operation: number): void => {};
   onViewportChanged: (viewport: MapViewport) => void = () => {};
   onMeasurementChanged: (summary: string) => void = () => {};
+  onEditFeedback: (summary: string, shouldToast: boolean) => void =
+    (_summary: string, _shouldToast: boolean): void => {};
   onBasemapStatusChanged: (summary: string) => void = () => {};
   onSketchFeatureCreated: (geometryType: number, points: GisCoordinate[]) => void = () => {};
+  onSelectionGeometryCompleted: (selectionWkt: string, crossLayers: boolean) => void =
+    (_selectionWkt: string, _crossLayers: boolean): void => {};
+  onCutSketchCompleted: (points: GisCoordinate[]) => void = () => {};
   onNodeEditRequested: (editMode: number, layerIndex: number, featureId: string, partIndex: number,
     pointIndex: number, mapX: number, mapY: number) => void = () => {};
   private tileWebController: webview.WebviewController = new webview.WebviewController();
@@ -399,10 +481,25 @@ export struct GisMapCanvas {
   private lastPanDy: number = 0;
   private lastInteractiveRenderTimestamp: number = 0;
   private isPanning: boolean = false;
+  private isPinching: boolean = false;
+  private isMiddleButtonPanning: boolean = false;
+  private middlePanStartX: number = 0;
+  private middlePanStartY: number = 0;
+  private middlePanStartCenterX: number = 0;
+  private middlePanStartCenterY: number = 0;
+  private lastWheelZoomX: number = 0;
+  private lastWheelZoomY: number = 0;
+  private rasterBitmap?: ImageBitmap;
+  private rasterBitmapPath: string = '';
+  private rasterRenderKey: string = '';
+  private rasterRenderSerial: number = 0;
+  private viewportFeatureCaches: ViewportFeatureCache[] = [];
   private canvasReady: boolean = false;
   private dataFitted: boolean = false;
+  private lastExternalViewportKey: number = 0;
   private measurementPoints: GisCoordinate[] = [];
   private sketchPoints: GisCoordinate[] = [];
+  private selectionPoints: GisCoordinate[] = [];
   private movingNodeHit: EditNodeHit = new EditNodeHit(false, -1, '', -1, -1);
 
   private interactiveFrameInterval(): number {
@@ -678,6 +775,13 @@ export struct GisMapCanvas {
 
   private featureLabelText(layer: GisLoadedLayer, feature: GisFeatureSummary): string {
     if (layer.style.labelField.length > 0) {
+      if (layer.style.labelField.startsWith('expr:')) {
+        let expressionText = layer.style.labelField.substring(5).trim();
+        let expressionLabel = this.simpleExpressionLabelText(feature, expressionText);
+        if (expressionLabel.length > 0) {
+          return expressionLabel;
+        }
+      }
       let text = this.attrText(feature, layer.style.labelField);
       if (text.length > 0) {
         return text;
@@ -699,12 +803,198 @@ export struct GisMapCanvas {
     return size;
   }
 
-  private featureRenderColor(layer: GisLoadedLayer, feature: GisFeatureSummary, baseColor: string): string {
+  private expressionFieldName(token: string): string {
+    let text = token.trim();
+    if (text.length >= 2 && text.charAt(0) === '"' && text.charAt(text.length - 1) === '"') {
+      return text.substring(1, text.length - 1);
+    }
+    if (text.length >= 2 && text.charAt(0) === '[' && text.charAt(text.length - 1) === ']') {
+      return text.substring(1, text.length - 1);
+    }
+    if (text.length > 0 && text.charAt(0) !== '\'' && text.charAt(0) !== '$') {
+      let value = Number(text);
+      if (value !== value) {
+        return text;
+      }
+    }
+    return '';
+  }
+
+  private buildLayerRenderStats(layer: GisLoadedLayer): LayerRenderStats {
+    let stats = new LayerRenderStats();
+    if (layer.style.rendererField.length === 0) {
+      return stats;
+    }
+    if (layer.style.rendererMode === 1) {
+      for (let i = 0; i < layer.features.length; i++) {
+        let value = this.attrText(layer.features[i], layer.style.rendererField);
+        let exists = false;
+        for (let j = 0; j < stats.categoryValues.length; j++) {
+          if (stats.categoryValues[j] === value) {
+            exists = true;
+            break;
+          }
+        }
+        if (!exists) {
+          stats.categoryValues.push(value);
+          if (stats.categoryValues.length >= 12) {
+            break;
+          }
+        }
+      }
+      return stats;
+    }
+    if (layer.style.rendererMode === 2) {
+      for (let i = 0; i < layer.features.length; i++) {
+        let text = this.attrText(layer.features[i], layer.style.rendererField);
+        if (text.length === 0) {
+          continue;
+        }
+        let value = Number(text);
+        if (value !== value) {
+          continue;
+        }
+        if (!stats.hasNumericRange) {
+          stats.minValue = value;
+          stats.maxValue = value;
+          stats.hasNumericRange = true;
+        } else {
+          if (value < stats.minValue) {
+            stats.minValue = value;
+          }
+          if (value > stats.maxValue) {
+            stats.maxValue = value;
+          }
+        }
+      }
+    }
+    return stats;
+  }
+
+  private expressionLiteralText(token: string): string {
+    let text = token.trim();
+    if (text.length >= 2 && text.charAt(0) === '\'' && text.charAt(text.length - 1) === '\'') {
+      return text.substring(1, text.length - 1);
+    }
+    if (text.length >= 2 && text.charAt(0) === '"' && text.charAt(text.length - 1) === '"') {
+      return text.substring(1, text.length - 1);
+    }
+    return text;
+  }
+
+  private expressionValueText(feature: GisFeatureSummary, token: string): string {
+    let fieldName = this.expressionFieldName(token);
+    if (fieldName.length > 0 && this.hasAttributeField(feature, fieldName)) {
+      return this.attrText(feature, fieldName);
+    }
+    return this.expressionLiteralText(token);
+  }
+
+  private featureMetricValue(feature: GisFeatureSummary, token: string): number {
+    let cleanToken = token.trim().toLowerCase();
+    let width = Math.abs(feature.envelope.maxX - feature.envelope.minX);
+    let height = Math.abs(feature.envelope.maxY - feature.envelope.minY);
+    if (cleanToken === '$area' || cleanToken === 'area($geometry)') {
+      return width * height;
+    }
+    if (cleanToken === '$length' || cleanToken === 'length($geometry)') {
+      return width + height;
+    }
+    return Number(this.expressionValueText(feature, token));
+  }
+
+  private compareExpressionValues(feature: GisFeatureSummary, left: string, operatorText: string,
+    right: string): boolean {
+    let leftText = this.expressionValueText(feature, left);
+    let rightText = this.expressionValueText(feature, right);
+    let leftNumber = this.featureMetricValue(feature, left);
+    let rightNumber = this.featureMetricValue(feature, right);
+    let numericCompare = leftNumber === leftNumber && rightNumber === rightNumber;
+    if (operatorText === '=' || operatorText === '==') {
+      if (numericCompare) {
+        return Math.abs(leftNumber - rightNumber) < 0.0000001;
+      }
+      return leftText === rightText;
+    }
+    if (operatorText === '!=' || operatorText === '<>') {
+      if (numericCompare) {
+        return Math.abs(leftNumber - rightNumber) >= 0.0000001;
+      }
+      return leftText !== rightText;
+    }
+    if (!numericCompare) {
+      return false;
+    }
+    if (operatorText === '>') {
+      return leftNumber > rightNumber;
+    }
+    if (operatorText === '>=') {
+      return leftNumber >= rightNumber;
+    }
+    if (operatorText === '<') {
+      return leftNumber < rightNumber;
+    }
+    if (operatorText === '<=') {
+      return leftNumber <= rightNumber;
+    }
+    return false;
+  }
+
+  private simpleExpressionMatches(feature: GisFeatureSummary, expressionText: string): boolean {
+    let expression = expressionText.trim();
+    let lower = expression.toLowerCase();
+    if (lower === 'true' || lower === '1=1' || lower === '1 = 1') {
+      return true;
+    }
+    if (lower === 'false' || lower === '1=0' || lower === '1 = 0') {
+      return false;
+    }
+    let isNotNullIndex = lower.indexOf(' is not null');
+    if (isNotNullIndex > 0) {
+      let fieldName = this.expressionFieldName(expression.substring(0, isNotNullIndex));
+      return fieldName.length > 0 && this.hasAttributeField(feature, fieldName) &&
+        this.attrText(feature, fieldName).length > 0;
+    }
+    let isNullIndex = lower.indexOf(' is null');
+    if (isNullIndex > 0) {
+      let fieldName = this.expressionFieldName(expression.substring(0, isNullIndex));
+      return fieldName.length > 0 && (!this.hasAttributeField(feature, fieldName) ||
+        this.attrText(feature, fieldName).length === 0);
+    }
+    let operators: string[] = ['>=', '<=', '!=', '<>', '==', '=', '>', '<'];
+    for (let i = 0; i < operators.length; i++) {
+      let operatorText = operators[i];
+      let operatorIndex = expression.indexOf(operatorText);
+      if (operatorIndex > 0) {
+        let left = expression.substring(0, operatorIndex);
+        let right = expression.substring(operatorIndex + operatorText.length);
+        return this.compareExpressionValues(feature, left, operatorText, right);
+      }
+    }
+    return false;
+  }
+
+  private simpleExpressionLabelText(feature: GisFeatureSummary, expressionText: string): string {
+    let expression = expressionText.trim();
+    if (expression.length === 0) {
+      return '';
+    }
+    let pieces: string[] = expression.split('||');
+    if (pieces.length > 1) {
+      let result = '';
+      for (let i = 0; i < pieces.length; i++) {
+        result += this.expressionValueText(feature, pieces[i]);
+      }
+      return result;
+    }
+    return this.expressionValueText(feature, expression);
+  }
+
+  private featureRenderColor(layer: GisLoadedLayer, feature: GisFeatureSummary, baseColor: string,
+    stats: LayerRenderStats): string {
     if (layer.style.rendererMode === 1 && layer.style.rendererField.length > 0) {
       let value = this.attrText(feature, layer.style.rendererField);
-      let bucket = qgisCategoryBucket(layer, layer.style.rendererField, value);
-      let total = qgisCategoryTotal(layer, layer.style.rendererField);
-      return qgisRampColor(layer.style.colorRamp, bucket, total);
+      return qgisRampColor(layer.style.colorRamp, stats.categoryBucket(value), stats.categoryTotal());
     }
     if (layer.style.rendererMode === 2 && layer.style.rendererField.length > 0) {
       let text = this.attrText(feature, layer.style.rendererField);
@@ -713,9 +1003,14 @@ export struct GisMapCanvas {
       }
       let value = Number(text);
       if (value === value) {
-        let bucket = qgisGraduatedBucket(layer, layer.style.rendererField, value);
-        return qgisRampColor(layer.style.colorRamp, bucket, 5);
+        return qgisRampColor(layer.style.colorRamp, stats.graduatedBucket(value), 5);
       }
+    }
+    if (layer.style.rendererMode === 3 && layer.style.rendererField.length > 0) {
+      if (this.simpleExpressionMatches(feature, layer.style.rendererField)) {
+        return qgisRampColor(layer.style.colorRamp, 0, 2);
+      }
+      return qgisRampColor(layer.style.colorRamp, 1, 2);
     }
     return baseColor;
   }
@@ -759,6 +1054,193 @@ export struct GisMapCanvas {
     ctx.fillText(text, px, py);
   }
 
+  private isFeatureSelected(featureId: string, layerIndex: number): boolean {
+    if (layerIndex !== this.selectedFeatureLayerIndex) {
+      return false;
+    }
+    for (let i = 0; i < this.selectedFeatureIds.length; i++) {
+      if (this.selectedFeatureIds[i] === featureId) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  private shouldUseNativeVectorRender(layer: GisLoadedLayer): boolean {
+    return !this.isRasterLayer(layer) && layer.info.featureCount > NATIVE_VECTOR_RENDER_THRESHOLD;
+  }
+
+  private nativeVectorRenderAvailable(layer: GisLoadedLayer): boolean {
+    return this.shouldUseNativeVectorRender(layer) && this.rasterBitmap !== undefined &&
+      this.rasterRenderKey.length > 0;
+  }
+
+  private viewportCacheIndex(layerId: string): number {
+    for (let i = 0; i < this.viewportFeatureCaches.length; i++) {
+      if (this.viewportFeatureCaches[i].layerId === layerId) {
+        return i;
+      }
+    }
+    return -1;
+  }
+
+  private interactionFeaturesForLayer(layerIndex: number): GisFeatureSummary[] {
+    if (layerIndex < 0 || layerIndex >= this.layers.length) {
+      return [];
+    }
+    let layer = this.layers[layerIndex];
+    if (!this.shouldUseNativeVectorRender(layer)) {
+      return layer.features;
+    }
+    let cacheIndex = this.viewportCacheIndex(layer.info.layerId);
+    if (cacheIndex >= 0) {
+      return this.viewportFeatureCaches[cacheIndex].features;
+    }
+    return layer.features;
+  }
+
+  private featureByIdForLayer(layerIndex: number, featureId: string): GisFeatureSummary | undefined {
+    if (layerIndex < 0 || layerIndex >= this.layers.length || featureId.length === 0) {
+      return undefined;
+    }
+    let interactionFeatures = this.interactionFeaturesForLayer(layerIndex);
+    for (let i = 0; i < interactionFeatures.length; i++) {
+      if (interactionFeatures[i].featureId === featureId) {
+        return interactionFeatures[i];
+      }
+    }
+    let feature = getGisService().getLayerFeatureById(layerIndex, featureId);
+    if (feature === undefined) {
+      return undefined;
+    }
+    let layer = this.layers[layerIndex];
+    if (this.shouldUseNativeVectorRender(layer)) {
+      let features: GisFeatureSummary[] = [];
+      features.push(feature);
+      let page = new GisFeaturePage(layer.info.layerId, features, false);
+      this.mergeViewportFeaturePage(layer, feature.envelope, page);
+    }
+    return feature;
+  }
+
+  private displayEnvelopeToLayerEnvelope(layer: GisLoadedLayer,
+    displayEnvelope: GisEnvelope): GisEnvelope | undefined {
+    if (!this.usesExternalBasemap()) {
+      return displayEnvelope;
+    }
+    let low = this.webMercatorToLonLat(new GisCoordinate(displayEnvelope.minX, displayEnvelope.minY, 0, false));
+    let high = this.webMercatorToLonLat(new GisCoordinate(displayEnvelope.maxX, displayEnvelope.maxY, 0, false));
+    let lonLatEnvelope = new GisEnvelope(Math.min(low.x, high.x), Math.min(low.y, high.y),
+      Math.max(low.x, high.x), Math.max(low.y, high.y));
+    if (layer.info.coordinateUnitType === UNIT_ANGULAR || layer.info.crs.length === 0) {
+      return lonLatEnvelope;
+    }
+    let transformResult: GisEnvelopeTransformResult =
+      getGisService().transformEnvelope('EPSG:4326', layer.info.crs, lonLatEnvelope);
+    if (!transformResult.ok) {
+      return undefined;
+    }
+    return transformResult.envelope;
+  }
+
+  private expandedDisplayEnvelope(pixelPadding: number): GisEnvelope {
+    let envelope = this.viewport.getVisibleEnvelope();
+    let padding = pixelPadding / Math.max(this.viewport.scale, 0.000000001);
+    return new GisEnvelope(envelope.minX - padding, envelope.minY - padding,
+      envelope.maxX + padding, envelope.maxY + padding);
+  }
+
+  private pointDisplayEnvelope(canvasX: number, canvasY: number, pixelTolerance: number): GisEnvelope {
+    let centerX = this.viewport.canvasToDataX(canvasX);
+    let centerY = this.viewport.canvasToDataY(canvasY);
+    let padding = pixelTolerance / Math.max(this.viewport.scale, 0.000000001);
+    return new GisEnvelope(centerX - padding, centerY - padding, centerX + padding, centerY + padding);
+  }
+
+  private storeViewportFeaturePage(layer: GisLoadedLayer, envelope: GisEnvelope, page: GisFeaturePage): void {
+    let cache = new ViewportFeatureCache(layer.info.layerId, envelope, page.features, page.hasMore);
+    let cacheIndex = this.viewportCacheIndex(layer.info.layerId);
+    if (cacheIndex >= 0) {
+      this.viewportFeatureCaches[cacheIndex] = cache;
+    } else {
+      this.viewportFeatureCaches.push(cache);
+    }
+  }
+
+  private mergeViewportFeaturePage(layer: GisLoadedLayer, envelope: GisEnvelope, page: GisFeaturePage): void {
+    let cacheIndex = this.viewportCacheIndex(layer.info.layerId);
+    if (cacheIndex < 0) {
+      this.storeViewportFeaturePage(layer, envelope, page);
+      return;
+    }
+    let cache = this.viewportFeatureCaches[cacheIndex];
+    for (let i = 0; i < page.features.length; i++) {
+      let candidate = page.features[i];
+      let exists = false;
+      for (let j = 0; j < cache.features.length; j++) {
+        if (cache.features[j].featureId === candidate.featureId) {
+          exists = true;
+          break;
+        }
+      }
+      if (!exists) {
+        cache.features.push(candidate);
+      }
+    }
+  }
+
+  private refreshViewportFeatureCache(): void {
+    if (!this.canvasReady) {
+      return;
+    }
+    let displayEnvelope = this.expandedDisplayEnvelope(48.0);
+    for (let i = 0; i < this.layers.length; i++) {
+      let layer = this.layers[i];
+      if (!layer.visible || !this.shouldUseNativeVectorRender(layer)) {
+        continue;
+      }
+      let queryEnvelope = this.displayEnvelopeToLayerEnvelope(layer, displayEnvelope);
+      if (queryEnvelope === undefined) {
+        continue;
+      }
+      let page = getGisService().queryLayerFeatures(i, queryEnvelope, VIEWPORT_INTERACTION_LIMIT, 0);
+      if (page !== undefined) {
+        this.storeViewportFeaturePage(layer, queryEnvelope, page);
+      }
+    }
+  }
+
+  private refreshInteractionFeaturesNearPoint(canvasX: number, canvasY: number): void {
+    let displayEnvelope = this.pointDisplayEnvelope(canvasX, canvasY, 14.0);
+    for (let i = 0; i < this.layers.length; i++) {
+      let layer = this.layers[i];
+      if (!layer.visible || !this.shouldUseNativeVectorRender(layer)) {
+        continue;
+      }
+      let queryEnvelope = this.displayEnvelopeToLayerEnvelope(layer, displayEnvelope);
+      if (queryEnvelope === undefined) {
+        continue;
+      }
+      let page = getGisService().queryLayerFeatures(i, queryEnvelope, POINT_QUERY_LIMIT, 0);
+      if (page !== undefined) {
+        this.mergeViewportFeaturePage(layer, queryEnvelope, page);
+      }
+    }
+  }
+
+  private featureIntersectsViewport(layer: GisLoadedLayer, feature: GisFeatureSummary,
+    visibleEnvelope: GisEnvelope): boolean {
+    let displayEnvelope = this.envelopeToDisplay(layer, feature.envelope);
+    if (displayEnvelope === undefined) {
+      return false;
+    }
+    let padding = 12.0 / Math.max(this.viewport.scale, 0.000000001);
+    return displayEnvelope.maxX >= visibleEnvelope.minX - padding &&
+      displayEnvelope.minX <= visibleEnvelope.maxX + padding &&
+      displayEnvelope.maxY >= visibleEnvelope.minY - padding &&
+      displayEnvelope.minY <= visibleEnvelope.maxY + padding;
+  }
+
   // ---------------------------------------------------------------------------
   // Main render
   // ---------------------------------------------------------------------------
@@ -771,12 +1253,17 @@ export struct GisMapCanvas {
     // Clear with selected basemap.
     this.drawBasemap(ctx, width, height);
 
+    this.drawNativeRasterView(ctx, width, height);
+
     // Efficient mode keeps the basemap and features, but omits the decorative grid.
     if (this.renderQuality !== 0) {
       this.drawGrid(ctx, width, height);
     }
 
-    // Draw layers back-to-front
+    let visibleEnvelope = this.viewport.getVisibleEnvelope();
+
+    // Draw layers back-to-front. Large vector layers are already present in the
+    // native QGIS bitmap; Canvas only paints their selected interaction preview.
     for (let li = 0; li < this.layers.length; li++) {
       let layer = this.layers[li];
       if (!layer.visible) {
@@ -784,30 +1271,48 @@ export struct GisMapCanvas {
       }
 
       let geomType = layer.info.geometryType;
+      let nativeVectorLayer = this.nativeVectorRenderAvailable(layer);
+      let renderStats = this.buildLayerRenderStats(layer);
+      let interactionFeatures = this.interactionFeaturesForLayer(li);
       let previousAlpha = ctx.globalAlpha;
       ctx.globalAlpha = layer.style.opacity;
 
       let featureStep = this.progressiveLoading && this.isPanning ? 2 : 1;
-      for (let fi = 0; fi < layer.features.length; fi += featureStep) {
-        let feature = layer.features[fi];
-        let isSelected = feature.featureId === this.selectedFeatureId && li === this.selectedFeatureLayerIndex;
+      for (let fi = 0; fi < interactionFeatures.length; fi += featureStep) {
+        let feature = interactionFeatures[fi];
+        let isSelected = this.isFeatureSelected(feature.featureId, li);
+        if (nativeVectorLayer && !isSelected) {
+          continue;
+        }
+        if (!this.featureIntersectsViewport(layer, feature, visibleEnvelope)) {
+          continue;
+        }
 
         if (geomType === GEOM_POLYGON) {
-          let fillColor = this.featureRenderColor(layer, feature, layer.style.fillColor);
+          let fillColor = this.featureRenderColor(layer, feature, layer.style.fillColor, renderStats);
           this.drawPolygonFeature(ctx, layer, feature, fillColor, layer.style.strokeColor, isSelected);
         } else if (geomType === GEOM_LINESTRING) {
-          let lineColor = this.featureRenderColor(layer, feature, layer.style.lineColor);
+          let lineColor = this.featureRenderColor(layer, feature, layer.style.lineColor, renderStats);
           this.drawLineFeature(ctx, layer, feature, lineColor, layer.style.lineWidth, isSelected);
         } else if (geomType === GEOM_POINT) {
-          let pointColor = this.featureRenderColor(layer, feature, layer.style.pointColor);
+          let pointColor = this.featureRenderColor(layer, feature, layer.style.pointColor, renderStats);
           this.drawPointFeature(ctx, layer, feature, pointColor, layer.style.pointRadius, isSelected);
         }
       }
       ctx.globalAlpha = previousAlpha;
 
-      if (this.renderQuality !== 0 && (!this.isPanning || this.renderQuality === 2)) {
+      if (!nativeVectorLayer && this.renderQuality !== 0 && (!this.isPanning || this.renderQuality === 2)) {
+        let drawnLabels = 0;
         for (let labelIndex = 0; labelIndex < layer.features.length; labelIndex++) {
-          this.drawFeatureLabel(ctx, layer, layer.features[labelIndex]);
+          let labelFeature = layer.features[labelIndex];
+          if (!this.featureIntersectsViewport(layer, labelFeature, visibleEnvelope)) {
+            continue;
+          }
+          this.drawFeatureLabel(ctx, layer, labelFeature);
+          drawnLabels++;
+          if (drawnLabels >= MAX_CANVAS_LABELS_PER_LAYER) {
+            break;
+          }
         }
       }
     }
@@ -820,12 +1325,120 @@ export struct GisMapCanvas {
 
     // Draw measurement overlay last.
     this.drawMeasurementOverlay(ctx);
+    this.drawSelectionOverlay(ctx);
 
     // Draw edit sketches above measurement and feature graphics.
     this.drawEditOverlay(ctx);
 
     this.syncOnlineBasemap();
     this.syncHarmonyBasemap();
+  }
+
+  private isRasterLayer(layer: GisLoadedLayer): boolean {
+    return layer.info.geometryType === GEOM_UNKNOWN && layer.info.fields.length === 0;
+  }
+
+  private visibleNativeRenderHandles(): string {
+    let result: string = '';
+    for (let i = 0; i < this.layers.length; i++) {
+      let layer = this.layers[i];
+      let nativeVectorLayer = this.shouldUseNativeVectorRender(layer);
+      if (!layer.visible || (!this.isRasterLayer(layer) && !nativeVectorLayer) || layer.info.layerId.length <= 1) {
+        continue;
+      }
+      if (result.length > 0) {
+        result += ';';
+      }
+      result += layer.info.layerId.substring(1);
+    }
+    return result;
+  }
+
+  private rasterDestinationCrs(): string {
+    if (this.usesExternalBasemap()) {
+      return 'EPSG:3857';
+    }
+    return '';
+  }
+
+  private rasterViewOutputPath(): string {
+    let ctx = getContext(this);
+    let slot = this.rasterRenderSerial % 2;
+    this.rasterRenderSerial++;
+    return ctx.filesDir + '/geonest_raster_preview/map_view_' + slot.toString() + '.png';
+  }
+
+  private buildRasterRenderKey(handles: string, width: number, height: number, envelope: GisEnvelope,
+    destinationCrs: string): string {
+    return handles + ':' + this.renderKey.toString() + ':' + Math.round(width).toString() + 'x' +
+      Math.round(height).toString() + ':' +
+      envelope.minX.toFixed(6) + ',' + envelope.minY.toFixed(6) + ',' +
+      envelope.maxX.toFixed(6) + ',' + envelope.maxY.toFixed(6) + ':' + destinationCrs;
+  }
+
+  private closeRasterBitmap(): void {
+    if (this.rasterBitmap !== undefined) {
+      try {
+        this.rasterBitmap.close();
+      } catch (e) {
+      }
+      this.rasterBitmap = undefined;
+    }
+    this.rasterBitmapPath = '';
+  }
+
+  private drawCachedRasterBitmap(ctx: CanvasRenderingContext2D, width: number, height: number): void {
+    if (this.rasterBitmap === undefined) {
+      return;
+    }
+    try {
+      ctx.drawImage(this.rasterBitmap, 0, 0, width, height);
+    } catch (e) {
+      this.closeRasterBitmap();
+    }
+  }
+
+  private drawNativeRasterView(ctx: CanvasRenderingContext2D, width: number, height: number): void {
+    let handles = this.visibleNativeRenderHandles();
+    if (handles.length === 0) {
+      this.rasterRenderKey = '';
+      this.closeRasterBitmap();
+      return;
+    }
+
+    let envelope = this.viewport.getVisibleEnvelope();
+    let destinationCrs = this.rasterDestinationCrs();
+    let key = this.buildRasterRenderKey(handles, width, height, envelope, destinationCrs);
+    if (key === this.rasterRenderKey && this.rasterBitmap !== undefined) {
+      this.drawCachedRasterBitmap(ctx, width, height);
+      return;
+    }
+    if ((this.isPanning || this.isMiddleButtonPanning || this.isPinching) && this.rasterBitmap !== undefined) {
+      this.drawCachedRasterBitmap(ctx, width, height);
+      return;
+    }
+
+    let outputPath = this.rasterViewOutputPath();
+    let result: GisGeoProcessResult = getGisService().renderMapView(outputPath, envelope.minX, envelope.minY,
+      envelope.maxX, envelope.maxY, Math.round(width), Math.round(height), handles, destinationCrs);
+    if (!result.ok) {
+      this.rasterRenderKey = '';
+      hilog.warn(TAG, DOMAIN, 'Native map render failed: %{public}s', result.message);
+      this.drawCachedRasterBitmap(ctx, width, height);
+      return;
+    }
+
+    this.closeRasterBitmap();
+    try {
+      this.rasterBitmap = new ImageBitmap(outputPath);
+      this.rasterBitmapPath = outputPath;
+      this.rasterRenderKey = key;
+      this.drawCachedRasterBitmap(ctx, width, height);
+    } catch (e) {
+      this.rasterRenderKey = '';
+      this.rasterBitmapPath = '';
+      hilog.warn(TAG, DOMAIN, 'Failed to load rendered raster bitmap');
+    }
   }
 
   private usesTileBasemap(): boolean {
@@ -1006,12 +1619,39 @@ export struct GisMapCanvas {
   }
 
   private notifyViewportChanged(): void {
+    this.refreshViewportFeatureCache();
     this.updateViewportDisplayCoordinate();
     this.updateScaleLabel();
     let viewportSnapshot = this.viewport.clone();
     setTimeout(() => {
       this.onViewportChanged(viewportSnapshot);
     }, 0);
+  }
+
+  private applyExternalViewportIfNeeded(): void {
+    if (!this.canvasReady) {
+      return;
+    }
+    if (this.externalViewportKey === this.lastExternalViewportKey) {
+      return;
+    }
+    if (this.externalViewportScale <= 0.000000001) {
+      return;
+    }
+    this.lastExternalViewportKey = this.externalViewportKey;
+    this.viewport.centerX = this.externalViewportCenterX;
+    this.viewport.centerY = this.externalViewportCenterY;
+    this.viewport.scale = this.externalViewportScale;
+    this.viewport.clampScale();
+    this.updateViewportDisplayCoordinate();
+    this.updateScaleLabel();
+    this.syncOnlineBasemap();
+    this.syncHarmonyBasemap();
+    this.renderMap(this.canvasContext, this.viewport.canvasWidth, this.viewport.canvasHeight);
+  }
+
+  private onExternalViewportChanged(): void {
+    this.applyExternalViewportIfNeeded();
   }
 
   private shouldShowHarmonyMapDiagnostic(): boolean {
@@ -1700,7 +2340,9 @@ export struct GisMapCanvas {
   private isEditTool(): boolean {
     return this.mapToolMode === MAP_TOOL_EDIT_ADD_POINT || this.mapToolMode === MAP_TOOL_EDIT_ADD_LINE ||
       this.mapToolMode === MAP_TOOL_EDIT_ADD_POLYGON || this.mapToolMode === MAP_TOOL_EDIT_MOVE_NODE ||
-      this.mapToolMode === MAP_TOOL_EDIT_DELETE_NODE;
+      this.mapToolMode === MAP_TOOL_EDIT_DELETE_NODE || this.mapToolMode === MAP_TOOL_EDIT_CUT_SKETCH ||
+      this.mapToolMode === MAP_TOOL_EDIT_TRACE || this.mapToolMode === MAP_TOOL_EDIT_PARALLEL ||
+      this.mapToolMode === MAP_TOOL_EDIT_PERPENDICULAR || this.mapToolMode === MAP_TOOL_EDIT_ORTHOGONAL;
   }
 
   private editModeText(): string {
@@ -1719,6 +2361,21 @@ export struct GisMapCanvas {
     if (this.mapToolMode === MAP_TOOL_EDIT_DELETE_NODE) {
       return '删除节点';
     }
+    if (this.mapToolMode === MAP_TOOL_EDIT_CUT_SKETCH) {
+      return '自由草图切割';
+    }
+    if (this.mapToolMode === MAP_TOOL_EDIT_TRACE) {
+      return '追踪绘制';
+    }
+    if (this.mapToolMode === MAP_TOOL_EDIT_PARALLEL) {
+      return '平行线';
+    }
+    if (this.mapToolMode === MAP_TOOL_EDIT_PERPENDICULAR) {
+      return '垂线';
+    }
+    if (this.mapToolMode === MAP_TOOL_EDIT_ORTHOGONAL) {
+      return '正交约束';
+    }
     return '';
   }
 
@@ -1726,7 +2383,9 @@ export struct GisMapCanvas {
     if (this.mapToolMode === MAP_TOOL_EDIT_ADD_POINT) {
       return GEOM_POINT;
     }
-    if (this.mapToolMode === MAP_TOOL_EDIT_ADD_LINE) {
+    if (this.mapToolMode === MAP_TOOL_EDIT_ADD_LINE || this.mapToolMode === MAP_TOOL_EDIT_CUT_SKETCH ||
+      this.mapToolMode === MAP_TOOL_EDIT_TRACE || this.mapToolMode === MAP_TOOL_EDIT_PARALLEL ||
+      this.mapToolMode === MAP_TOOL_EDIT_PERPENDICULAR || this.mapToolMode === MAP_TOOL_EDIT_ORTHOGONAL) {
       return GEOM_LINESTRING;
     }
     if (this.mapToolMode === MAP_TOOL_EDIT_ADD_POLYGON) {
@@ -1739,7 +2398,9 @@ export struct GisMapCanvas {
     if (this.mapToolMode === MAP_TOOL_EDIT_ADD_POINT) {
       return 1;
     }
-    if (this.mapToolMode === MAP_TOOL_EDIT_ADD_LINE) {
+    if (this.mapToolMode === MAP_TOOL_EDIT_ADD_LINE || this.mapToolMode === MAP_TOOL_EDIT_CUT_SKETCH ||
+      this.mapToolMode === MAP_TOOL_EDIT_TRACE || this.mapToolMode === MAP_TOOL_EDIT_PARALLEL ||
+      this.mapToolMode === MAP_TOOL_EDIT_PERPENDICULAR || this.mapToolMode === MAP_TOOL_EDIT_ORTHOGONAL) {
       return 2;
     }
     if (this.mapToolMode === MAP_TOOL_EDIT_ADD_POLYGON) {
@@ -2089,8 +2750,9 @@ export struct GisMapCanvas {
       if (!layer.visible) {
         continue;
       }
-      for (let fi = layer.features.length - 1; fi >= 0; fi--) {
-        let feature = layer.features[fi];
+      let interactionFeatures = this.interactionFeaturesForLayer(li);
+      for (let fi = interactionFeatures.length - 1; fi >= 0; fi--) {
+        let feature = interactionFeatures[fi];
         for (let pi = 0; pi < feature.geometry.parts.length; pi++) {
           let part = feature.geometry.parts[pi];
           for (let ci = 0; ci < part.points.length; ci++) {
@@ -2124,11 +2786,169 @@ export struct GisMapCanvas {
     return result;
   }
 
-  private handleEditClick(canvasX: number, canvasY: number): void {
-    if (this.usesExternalBasemap()) {
-      this.onMeasurementChanged('在线底图下请先切回本地矢量底图再编辑，避免写入错误坐标');
+  private drawSelectionOverlay(ctx: CanvasRenderingContext2D): void {
+    if (!this.isSpatialSelectionTool() || this.selectionPoints.length === 0) {
       return;
     }
+    ctx.strokeStyle = '#1D4F91';
+    ctx.fillStyle = '#1D4F9124';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    let first: GisCoordinate = this.selectionPoints[0];
+    ctx.moveTo(this.viewport.dataToCanvasX(first.x), this.viewport.dataToCanvasY(first.y));
+    for (let i = 1; i < this.selectionPoints.length; i++) {
+      let point: GisCoordinate = this.selectionPoints[i];
+      ctx.lineTo(this.viewport.dataToCanvasX(point.x), this.viewport.dataToCanvasY(point.y));
+    }
+    if (this.selectionPoints.length >= 3) {
+      ctx.closePath();
+      ctx.fill();
+    }
+    ctx.stroke();
+    ctx.fillStyle = '#17201D';
+    ctx.font = '12px sans-serif';
+    ctx.fillText('服务端全数据集空间选择', 16, 58);
+  }
+
+  private isSpatialSelectionTool(): boolean {
+    return this.mapToolMode === MAP_TOOL_SELECT_BOX || this.mapToolMode === MAP_TOOL_SELECT_LASSO ||
+      this.mapToolMode === MAP_TOOL_SELECT_POLYGON;
+  }
+
+  private selectionRequiredPointCount(): number {
+    if (this.mapToolMode === MAP_TOOL_SELECT_BOX) {
+      return 2;
+    }
+    return 3;
+  }
+
+  private selectionWkt(): string {
+    if (this.selectionPoints.length < 2) {
+      return '';
+    }
+    let points: GisCoordinate[] = [];
+    if (this.mapToolMode === MAP_TOOL_SELECT_BOX) {
+      let first: GisCoordinate = this.selectionPoints[0];
+      let second: GisCoordinate = this.selectionPoints[1];
+      points.push(new GisCoordinate(first.x, first.y, 0, false));
+      points.push(new GisCoordinate(second.x, first.y, 0, false));
+      points.push(new GisCoordinate(second.x, second.y, 0, false));
+      points.push(new GisCoordinate(first.x, second.y, 0, false));
+    } else {
+      for (let i = 0; i < this.selectionPoints.length; i++) {
+        points.push(this.selectionPoints[i]);
+      }
+    }
+    if (points.length < 3) {
+      return '';
+    }
+    let text: string = 'POLYGON((';
+    for (let i = 0; i < points.length; i++) {
+      if (i > 0) {
+        text += ',';
+      }
+      text += points[i].x.toString() + ' ' + points[i].y.toString();
+    }
+    text += ',' + points[0].x.toString() + ' ' + points[0].y.toString() + '))';
+    return text;
+  }
+
+  private handleSpatialSelectionClick(canvasX: number, canvasY: number): void {
+    if (this.usesExternalBasemap()) {
+      this.reportEditFeedback('全数据集空间选择请在本地图层坐标视图中执行', true);
+      return;
+    }
+    this.selectionPoints.push(new GisCoordinate(this.viewport.canvasToDataX(canvasX),
+      this.viewport.canvasToDataY(canvasY), 0, false));
+    if (this.selectionPoints.length >= this.selectionRequiredPointCount()) {
+      let wkt: string = this.selectionWkt();
+      if (wkt.length > 0) {
+        this.onSelectionGeometryCompleted(wkt, this.crossLayerSelection);
+      }
+      this.selectionPoints = [];
+    } else {
+      this.onMeasurementChanged('空间选择：继续绘制范围');
+    }
+    this.renderMap(this.canvasContext, this.viewport.canvasWidth, this.viewport.canvasHeight);
+  }
+
+  private reportEditFeedback(summary: string, shouldToast: boolean): void {
+    this.onMeasurementChanged(summary);
+    this.onEditFeedback(summary, shouldToast);
+  }
+
+  private referenceDirection(): GisCoordinate {
+    if (this.selectedFeatureLayerIndex >= 0 && this.selectedFeatureLayerIndex < this.layers.length) {
+      let layer: GisLoadedLayer = this.layers[this.selectedFeatureLayerIndex];
+      let interactionFeatures: GisFeatureSummary[] = this.interactionFeaturesForLayer(this.selectedFeatureLayerIndex);
+      for (let i = 0; i < interactionFeatures.length; i++) {
+        let feature: GisFeatureSummary = interactionFeatures[i];
+        if (feature.featureId !== this.selectedFeatureId || feature.geometry.parts.length === 0 ||
+          feature.geometry.parts[0].points.length < 2) {
+          continue;
+        }
+        let first: GisCoordinate = feature.geometry.parts[0].points[0];
+        let second: GisCoordinate = feature.geometry.parts[0].points[1];
+        return new GisCoordinate(second.x - first.x, second.y - first.y, 0, false);
+      }
+    }
+    return new GisCoordinate(1, 0, 0, false);
+  }
+
+  private constrainedSketchPoint(canvasX: number, canvasY: number, dataX: number, dataY: number): GisCoordinate {
+    if (this.mapToolMode === MAP_TOOL_EDIT_TRACE) {
+      let hit: EditNodeHit = this.findNearestNode(canvasX, canvasY);
+      if (hit.found && hit.layerIndex >= 0 && hit.layerIndex < this.layers.length) {
+        let layer: GisLoadedLayer = this.layers[hit.layerIndex];
+        let interactionFeatures: GisFeatureSummary[] = this.interactionFeaturesForLayer(hit.layerIndex);
+        for (let i = 0; i < interactionFeatures.length; i++) {
+          if (interactionFeatures[i].featureId === hit.featureId && hit.partIndex >= 0 &&
+            hit.partIndex < interactionFeatures[i].geometry.parts.length && hit.pointIndex >= 0 &&
+            hit.pointIndex < interactionFeatures[i].geometry.parts[hit.partIndex].points.length) {
+            let point: GisCoordinate = interactionFeatures[i].geometry.parts[hit.partIndex].points[hit.pointIndex];
+            return new GisCoordinate(point.x, point.y, point.z, point.hasZ);
+          }
+        }
+      }
+    }
+    if (this.sketchPoints.length === 0) {
+      return new GisCoordinate(dataX, dataY, 0, false);
+    }
+    let origin: GisCoordinate = this.sketchPoints[0];
+    if (this.mapToolMode === MAP_TOOL_EDIT_ORTHOGONAL) {
+      if (Math.abs(dataX - origin.x) >= Math.abs(dataY - origin.y)) {
+        return new GisCoordinate(dataX, origin.y, 0, false);
+      }
+      return new GisCoordinate(origin.x, dataY, 0, false);
+    }
+    if (this.mapToolMode === MAP_TOOL_EDIT_PARALLEL ||
+      this.mapToolMode === MAP_TOOL_EDIT_PERPENDICULAR) {
+      let direction: GisCoordinate = this.referenceDirection();
+      let dx: number = direction.x;
+      let dy: number = direction.y;
+      if (this.mapToolMode === MAP_TOOL_EDIT_PERPENDICULAR) {
+        let oldDx: number = dx;
+        dx = -dy;
+        dy = oldDx;
+      }
+      let length: number = Math.sqrt(dx * dx + dy * dy);
+      if (length <= 0) {
+        return new GisCoordinate(dataX, dataY, 0, false);
+      }
+      dx /= length;
+      dy /= length;
+      let projection: number = (dataX - origin.x) * dx + (dataY - origin.y) * dy;
+      return new GisCoordinate(origin.x + projection * dx, origin.y + projection * dy, 0, false);
+    }
+    return new GisCoordinate(dataX, dataY, 0, false);
+  }
+
+  private handleEditClick(canvasX: number, canvasY: number): void {
+    if (this.usesExternalBasemap()) {
+      this.reportEditFeedback('在线底图下请先切回本地矢量底图再编辑，避免写入错误坐标', true);
+      return;
+    }
+    this.refreshInteractionFeaturesNearPoint(canvasX, canvasY);
     let dataX = this.viewport.canvasToDataX(canvasX);
     let dataY = this.viewport.canvasToDataY(canvasY);
     if (this.mapToolMode === MAP_TOOL_EDIT_MOVE_NODE) {
@@ -2139,9 +2959,9 @@ export struct GisMapCanvas {
       } else {
         this.movingNodeHit = this.findNearestNode(canvasX, canvasY);
         if (this.movingNodeHit.found) {
-          this.onMeasurementChanged('已选节点：' + this.movingNodeHit.featureId);
+          this.reportEditFeedback('已选节点：' + this.movingNodeHit.featureId, false);
         } else {
-          this.onMeasurementChanged('未命中可移动节点');
+          this.reportEditFeedback('未命中可移动节点', true);
         }
       }
       this.renderMap(this.canvasContext, this.viewport.canvasWidth, this.viewport.canvasHeight);
@@ -2153,17 +2973,21 @@ export struct GisMapCanvas {
         this.onNodeEditRequested(this.mapToolMode, hit.layerIndex, hit.featureId, hit.partIndex, hit.pointIndex,
           dataX, dataY);
       } else {
-        this.onMeasurementChanged('未命中可删除节点');
+        this.reportEditFeedback('未命中可删除节点', true);
       }
       this.renderMap(this.canvasContext, this.viewport.canvasWidth, this.viewport.canvasHeight);
       return;
     }
-    this.sketchPoints.push(new GisCoordinate(dataX, dataY, 0, false));
+    this.sketchPoints.push(this.constrainedSketchPoint(canvasX, canvasY, dataX, dataY));
     if (this.sketchPoints.length >= this.requiredSketchPointCount()) {
-      this.onSketchFeatureCreated(this.editGeometryType(), this.cloneSketchPoints());
+      if (this.mapToolMode === MAP_TOOL_EDIT_CUT_SKETCH) {
+        this.onCutSketchCompleted(this.cloneSketchPoints());
+      } else {
+        this.onSketchFeatureCreated(this.editGeometryType(), this.cloneSketchPoints());
+      }
       this.sketchPoints = [];
     } else {
-      this.onMeasurementChanged(this.editModeText() + '：继续点击地图');
+      this.reportEditFeedback(this.editModeText() + '：继续点击地图', false);
     }
     this.renderMap(this.canvasContext, this.viewport.canvasWidth, this.viewport.canvasHeight);
   }
@@ -2181,8 +3005,9 @@ export struct GisMapCanvas {
         continue;
       }
 
-      for (let fi = layer.features.length - 1; fi >= 0; fi--) {
-        let feature = layer.features[fi];
+      let interactionFeatures = this.interactionFeaturesForLayer(li);
+      for (let fi = interactionFeatures.length - 1; fi >= 0; fi--) {
+        let feature = interactionFeatures[fi];
         let geom = feature.geometry;
 
         if (geom.geometryType === GEOM_POINT) {
@@ -2369,6 +3194,7 @@ export struct GisMapCanvas {
             this.updateScaleLabel();
             this.notifyViewportChanged();
           }
+          this.applyExternalViewportIfNeeded();
           this.renderMap(this.canvasContext, this.viewport.canvasWidth, this.viewport.canvasHeight);
         })
         .onAreaChange((_oldVal: Area, newVal: Area) => {
@@ -2427,19 +3253,31 @@ export struct GisMapCanvas {
         )
         .gesture(
           PinchGesture({ fingers: 2 })
+            .onActionStart(() => {
+              this.isPinching = true;
+              this.lastInteractiveRenderTimestamp = 0;
+            })
             .onActionUpdate((event: GestureEvent) => {
               let scaleFactor = event.scale;
               if (scaleFactor > 0.5 && scaleFactor < 3.0) {
                 this.viewport.scale = this.viewport.scale * scaleFactor;
                 this.viewport.clampScale();
-                this.renderMap(this.canvasContext, this.viewport.canvasWidth, this.viewport.canvasHeight);
+                if (this.shouldRenderInteractiveFrame(event.timestamp)) {
+                  this.renderMap(this.canvasContext, this.viewport.canvasWidth, this.viewport.canvasHeight);
+                }
               }
             })
             .onActionEnd(() => {
+              this.isPinching = false;
+              this.renderMap(this.canvasContext, this.viewport.canvasWidth, this.viewport.canvasHeight);
               this.notifyViewportChanged();
             })
         )
         .onClick((event: ClickEvent) => {
+          if (this.isSpatialSelectionTool()) {
+            this.handleSpatialSelectionClick(event.x, event.y);
+            return;
+          }
           if (this.isEditTool()) {
             this.handleEditClick(event.x, event.y);
             return;
@@ -2448,13 +3286,75 @@ export struct GisMapCanvas {
             this.handleMeasurementClick(event.x, event.y);
             return;
           }
+          this.refreshInteractionFeaturesNearPoint(event.x, event.y);
           let hit = this.hitTest(event.x, event.y);
           if (hit.found) {
-            this.onFeatureSelected(hit.featureId, hit.layerIndex);
+            let operation = this.mapToolMode === MAP_TOOL_SELECT_MULTIPLE ? FEATURE_SELECTION_TOGGLE :
+              FEATURE_SELECTION_REPLACE;
+            this.onFeatureSelected(hit.featureId, hit.layerIndex, operation);
           } else {
-            this.onFeatureSelected('', -1);
+            this.onFeatureSelected('', -1, FEATURE_SELECTION_REPLACE);
           }
           this.renderMap(this.canvasContext, this.viewport.canvasWidth, this.viewport.canvasHeight);
+        })
+        .onMouse((event: MouseEvent) => {
+          if (event.action === MouseAction.Press && event.button === 2) {
+            this.isMiddleButtonPanning = true;
+            this.lastInteractiveRenderTimestamp = 0;
+            this.middlePanStartX = event.x;
+            this.middlePanStartY = event.y;
+            this.middlePanStartCenterX = this.viewport.centerX;
+            this.middlePanStartCenterY = this.viewport.centerY;
+            return;
+          }
+          if (event.action === MouseAction.Release && event.button === 2) {
+            this.isMiddleButtonPanning = false;
+            this.renderMap(this.canvasContext, this.viewport.canvasWidth, this.viewport.canvasHeight);
+            this.notifyViewportChanged();
+            return;
+          }
+          if (this.isMiddleButtonPanning && event.action === MouseAction.Move) {
+            let dx = (event.x - this.middlePanStartX) / this.viewport.scale;
+            let dy = (event.y - this.middlePanStartY) / this.viewport.scale;
+            this.viewport.centerX = this.middlePanStartCenterX - dx;
+            this.viewport.centerY = this.middlePanStartCenterY + dy;
+            if (this.shouldRenderInteractiveFrame(Date.now())) {
+              this.renderMap(this.canvasContext, this.viewport.canvasWidth, this.viewport.canvasHeight);
+            }
+            return;
+          }
+        })
+        .onAxisEvent((event?: AxisEvent) => {
+          if (event === undefined) {
+            return;
+          }
+          let step = event.scrollStep;
+          if (step === undefined) {
+            return;
+          }
+          let vpX = event.x;
+          let vpY = event.y;
+          if (step > 0) {
+            let factor = 1.15;
+            let mapX = this.viewport.centerX + (vpX - this.viewport.canvasWidth / 2) / this.viewport.scale;
+            let mapY = this.viewport.centerY - (vpY - this.viewport.canvasHeight / 2) / this.viewport.scale;
+            this.viewport.scale = this.viewport.scale * factor;
+            this.viewport.clampScale();
+            this.viewport.centerX = mapX - (vpX - this.viewport.canvasWidth / 2) / this.viewport.scale;
+            this.viewport.centerY = mapY + (vpY - this.viewport.canvasHeight / 2) / this.viewport.scale;
+            this.renderMap(this.canvasContext, this.viewport.canvasWidth, this.viewport.canvasHeight);
+            this.notifyViewportChanged();
+          } else if (step < 0) {
+            let factor = 1 / 1.15;
+            let mapX = this.viewport.centerX + (vpX - this.viewport.canvasWidth / 2) / this.viewport.scale;
+            let mapY = this.viewport.centerY - (vpY - this.viewport.canvasHeight / 2) / this.viewport.scale;
+            this.viewport.scale = this.viewport.scale * factor;
+            this.viewport.clampScale();
+            this.viewport.centerX = mapX - (vpX - this.viewport.canvasWidth / 2) / this.viewport.scale;
+            this.viewport.centerY = mapY + (vpY - this.viewport.canvasHeight / 2) / this.viewport.scale;
+            this.renderMap(this.canvasContext, this.viewport.canvasWidth, this.viewport.canvasHeight);
+            this.notifyViewportChanged();
+          }
         })
 
       if (this.shouldShowHarmonyMapDiagnostic()) {
@@ -2479,10 +3379,11 @@ export struct GisMapCanvas {
     } else {
       this.dataFitted = false;
     }
+    this.viewportFeatureCaches = [];
     this.lastLayerCount = this.layers.length;
     this.updateScaleLabel();
-    this.renderMap(this.canvasContext, this.viewport.canvasWidth, this.viewport.canvasHeight);
     this.notifyViewportChanged();
+    this.renderMap(this.canvasContext, this.viewport.canvasWidth, this.viewport.canvasHeight);
   }
 
   onMapCommandChanged(): void {
@@ -2496,13 +3397,16 @@ export struct GisMapCanvas {
     } else if (this.mapCommand === MAP_COMMAND_FULL_EXTENT) {
       this.zoomToFullExtent();
     } else if (this.mapCommand === MAP_COMMAND_ZOOM_SELECTED) {
-      this.zoomToSelectedFeature();
+      this.zoomToSelectedFeatures();
+    } else if (this.mapCommand === MAP_COMMAND_ZOOM_PRIMARY) {
+      this.zoomToPrimaryFeature();
     }
   }
 
   onMapToolChanged(): void {
     this.measurementPoints = [];
     this.sketchPoints = [];
+    this.selectionPoints = [];
     this.movingNodeHit = new EditNodeHit(false, -1, '', -1, -1);
     this.onMeasurementChanged('');
     if (this.canvasReady) {
@@ -2564,25 +3468,72 @@ export struct GisMapCanvas {
     }
   }
 
-  private zoomToSelectedFeature(): void {
+  private zoomToPrimaryFeature(): void {
     if (this.selectedFeatureId.length === 0 || this.selectedFeatureLayerIndex < 0 ||
       this.selectedFeatureLayerIndex >= this.layers.length) {
       return;
     }
     let layer = this.layers[this.selectedFeatureLayerIndex];
-    for (let fi = 0; fi < layer.features.length; fi++) {
-      let feature = layer.features[fi];
-      if (feature.featureId === this.selectedFeatureId) {
-        let env = this.envelopeToDisplay(layer, feature.envelope);
-        if (env === undefined) {
-          return;
+    let feature = this.featureByIdForLayer(this.selectedFeatureLayerIndex, this.selectedFeatureId);
+    if (feature === undefined) {
+      return;
+    }
+    let env = this.envelopeToDisplay(layer, feature.envelope);
+    if (env === undefined) {
+      return;
+    }
+    this.viewport.fitToEnvelope(env.minX, env.minY, env.maxX, env.maxY);
+    this.notifyViewportChanged();
+    this.renderMap(this.canvasContext, this.viewport.canvasWidth, this.viewport.canvasHeight);
+  }
+
+  private zoomToSelectedFeatures(): void {
+    if (this.selectedFeatureIds.length === 0 || this.selectedFeatureLayerIndex < 0 ||
+      this.selectedFeatureLayerIndex >= this.layers.length) {
+      return;
+    }
+    let layer = this.layers[this.selectedFeatureLayerIndex];
+    let found = false;
+    let minX = 0.0;
+    let minY = 0.0;
+    let maxX = 0.0;
+    let maxY = 0.0;
+    for (let fi = 0; fi < this.selectedFeatureIds.length; fi++) {
+      let feature = this.featureByIdForLayer(this.selectedFeatureLayerIndex, this.selectedFeatureIds[fi]);
+      if (feature === undefined) {
+        continue;
+      }
+      let env = this.envelopeToDisplay(layer, feature.envelope);
+      if (env === undefined) {
+        continue;
+      }
+      if (!found) {
+        minX = env.minX;
+        minY = env.minY;
+        maxX = env.maxX;
+        maxY = env.maxY;
+        found = true;
+      } else {
+        if (env.minX < minX) {
+          minX = env.minX;
         }
-        this.viewport.fitToEnvelope(env.minX, env.minY, env.maxX, env.maxY);
-        this.renderMap(this.canvasContext, this.viewport.canvasWidth, this.viewport.canvasHeight);
-        this.notifyViewportChanged();
-        return;
+        if (env.minY < minY) {
+          minY = env.minY;
+        }
+        if (env.maxX > maxX) {
+          maxX = env.maxX;
+        }
+        if (env.maxY > maxY) {
+          maxY = env.maxY;
+        }
       }
     }
+    if (!found) {
+      return;
+    }
+    this.viewport.fitToEnvelope(minX, minY, maxX, maxY);
+    this.notifyViewportChanged();
+    this.renderMap(this.canvasContext, this.viewport.canvasWidth, this.viewport.canvasHeight);
   }
 
   // Public method: zoom to full extent (uses data envelope)

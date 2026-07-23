@@ -21,14 +21,23 @@ $hmosNative = Join-Path $DevEcoSdkHome 'default\hms\native'
 foreach ($abi in $AbiFilters) {
   $buildDir = Join-Path $BuildRoot $abi
   $stageDir = Join-Path $StageRoot $abi
+
+  # Force clean build to pick up driver changes
+  if (Test-Path -LiteralPath $buildDir) {
+    Remove-Item -LiteralPath $buildDir -Recurse -Force
+  }
   New-Item -ItemType Directory -Force -Path $buildDir | Out-Null
 
   $includeDir = Join-Path $stageDir 'include'
   $sqliteLib = Join-Path $stageDir 'lib\libsqlite3.so'
   $projLib = Join-Path $stageDir 'lib\libproj.so'
   $geosLib = Join-Path $stageDir 'lib\libgeos_c.so'
+  $expatLib = Join-Path $stageDir 'lib\libexpat.so'
+  $freeXlLib = Join-Path $stageDir 'lib\libfreexl.so'
   $geosDir = Join-Path $stageDir 'lib\cmake\GEOS'
   $geosHeader = Join-Path $includeDir 'geos_c.h'
+  $expatHeader = Join-Path $includeDir 'expat.h'
+  $freeXlHeader = Join-Path $includeDir 'freexl.h'
 
   if (-not (Test-Path -LiteralPath $sqliteLib)) {
     throw "SQLite must be built before GDAL. Missing: $sqliteLib"
@@ -41,6 +50,18 @@ foreach ($abi in $AbiFilters) {
   }
   if (-not (Test-Path -LiteralPath $geosHeader)) {
     throw "GEOS header not found: $geosHeader"
+  }
+  if (-not (Test-Path -LiteralPath $expatLib)) {
+    throw "Expat must be built before GDAL XLSX support. Missing: $expatLib"
+  }
+  if (-not (Test-Path -LiteralPath $expatHeader)) {
+    throw "Expat header not found: $expatHeader"
+  }
+  if (-not (Test-Path -LiteralPath $freeXlLib)) {
+    throw "FreeXL must be built before GDAL XLS support. Missing: $freeXlLib"
+  }
+  if (-not (Test-Path -LiteralPath $freeXlHeader)) {
+    throw "FreeXL header not found: $freeXlHeader"
   }
 
   $geosVersionMatch = Select-String -LiteralPath $geosHeader -Pattern '^\s*#define\s+GEOS_VERSION\s+"([^"]+)"' | Select-Object -First 1
@@ -62,7 +83,10 @@ foreach ($abi in $AbiFilters) {
   $projLibCmake = $projLib.Replace('\', '/')
   $geosLibCmake = $geosLib.Replace('\', '/')
   $geosDirCmake = $geosDir.Replace('\', '/')
+  $expatLibCmake = $expatLib.Replace('\', '/')
+  $freeXlLibCmake = $freeXlLib.Replace('\', '/')
 
+  # Modern Excel .xlsx uses Expat; legacy .xls uses FreeXL.
   & $cmakeCmake -S $gdalSourceCmake -B $buildDirCmake -GNinja `
     "-USQLite3_HAS_*" `
     "-DCMAKE_MAKE_PROGRAM=$ninjaCmake" `
@@ -87,6 +111,11 @@ foreach ($abi in $AbiFilters) {
     -DGDAL_ENABLE_DRIVER_VRT=ON `
     -DOGR_ENABLE_DRIVER_GEOJSON=ON `
     -DOGR_ENABLE_DRIVER_GPKG=ON `
+    -DOGR_ENABLE_DRIVER_KML=ON `
+    -DOGR_ENABLE_DRIVER_CSV=ON `
+    -DOGR_ENABLE_DRIVER_XLSX=ON `
+    -DOGR_ENABLE_DRIVER_XLS=ON `
+    -DOGR_ENABLE_DRIVER_FLATGEOBUF=ON `
     -DOGR_ENABLE_DRIVER_MEM=ON `
     -DOGR_ENABLE_DRIVER_SHAPE=ON `
     -DOGR_ENABLE_DRIVER_SQLITE=ON `
@@ -106,7 +135,12 @@ foreach ($abi in $AbiFilters) {
     "-DSQLite3_INCLUDE_DIR=$includeDirCmake" `
     "-DSQLite3_LIBRARY=$sqliteLibCmake" `
     -DGDAL_USE_CURL=OFF `
-    -DGDAL_USE_EXPAT=OFF `
+    -DGDAL_USE_EXPAT=ON `
+    "-DEXPAT_INCLUDE_DIR=$includeDirCmake" `
+    "-DEXPAT_LIBRARY=$expatLibCmake" `
+    -DGDAL_USE_FREEXL=ON `
+    "-DFREEXL_INCLUDE_DIR=$includeDirCmake" `
+    "-DFREEXL_LIBRARY=$freeXlLibCmake" `
     -DGDAL_USE_ICONV=OFF `
     -DGDAL_USE_LIBXML2=OFF `
     -DGDAL_USE_OPENSSL=OFF `
